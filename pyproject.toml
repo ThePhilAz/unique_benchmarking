@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "unique-benchmarking"
+version = "0.1.0"
+description = ""
+authors = ["ThePhilAz <rami.azouz@philico.com>"]
+readme = "README.md"
+packages = [{include = "unique_benchmarking"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.5"
+streamlit = "^1.49.1"
+pandas = "^2.3.2"
+plotly = "^6.3.0"
+tabulate = "^0.9.0"
+jinja2 = "^3.1.6"
+ruff = "^0.12.11"
+asyncio = "^4.0.0"
+httpx = "^0.28.1"
+pydantic = "^2.11.7"
+unique-sdk = "^0.10.20"
+unique-toolkit = "^0.8.46"
+
+[tool.poetry.scripts]
+start = "unique_benchmarking.cli:start"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
