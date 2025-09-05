@@ -10,126 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, Callable
 from unique_sdk.utils.chat_in_space import send_message_and_wait_for_completion
-from pydantic import BaseModel, field_validator, Field
-from typing import Literal
-from unique_toolkit.evals.schemas import EvaluationAssessmentMessage
-from unique_toolkit.chat.schemas import ContentReference
-import re
 from logging import getLogger
+from schemas import ExperimentResult, ExperimentSummary, Message
 
 logger = getLogger(__name__)
-
-
-class TimeInfo(BaseModel):
-    """Represents the time info in the debug info."""
-
-    clean_time: float
-    crawl_time: float
-    total_time: float
-    search_time: float
-
-
-class SearchResult(BaseModel):
-    """Represents a search result in the debug info."""
-
-    title: str
-    url: str
-    content: str
-
-
-class DebugInfoTool(BaseModel):
-    """Represents a tool in the debug info."""
-
-    time_info: TimeInfo
-    search_query: str
-    date_restrict: str
-    refined_query: str
-    search_results: list[SearchResult]
-    num_chunks_in_final_prompts: int = Field(
-        validation_alias="num chunks in final prompts",
-        serialization_alias="num_chunks_in_final_prompts",
-    )
-
-
-class DebugInfo(BaseModel):
-    """Represents the debug info in the message."""
-
-    tools: list[DebugInfoTool] | None
-
-
-class Message(BaseModel):
-    """Represents a message in the space."""
-
-    id: str
-    chatId: str
-    text: str | None
-    originalText: str | None
-    role: Literal["system", "user", "assistant"]
-    debugInfo: DebugInfo | None
-    completedAt: str | None
-    createdAt: str | None
-    updatedAt: str | None
-    stoppedStreamingAt: str | None
-    references: list[ContentReference] | None
-    assessment: list[EvaluationAssessmentMessage] | None
-
-    @field_validator("role", mode="before")
-    def validate_role(cls, v):
-        return v.lower()
-
-    def optimize_text(self):
-        def process_assistant_message(
-            text: str, references: List[ContentReference]
-        ) -> str:
-            """
-            Process the assistant's message and return the results.
-            """
-            refences_map = {
-                reference.sequence_number: f"[{reference.name}]({reference.url})"
-                for reference in references
-            }
-
-            text = re.sub(
-                r"<follow-up-question>.*?<\/follow-up-question>",
-                "",
-                text,
-                flags=re.DOTALL,
-            )
-
-            for sequence_number, reference_url_markdown in refences_map.items():
-                text = text.replace(
-                    f"<sup>{sequence_number}</sup>", reference_url_markdown
-                )
-            return text
-
-        if self.references and self.text:
-            self.text = process_assistant_message(self.text, self.references)
-
-
-class ExperimentResult(BaseModel):
-    """Represents a single experiment result."""
-
-    test_id: int
-    assistant_id: str
-    success: bool
-    error: str | None
-    execution_time: float
-    timestamp: str
-    message: Message | None
-
-
-class ExperimentSummary(BaseModel):
-    """Represents the overall experiment summary."""
-
-    total_tests: int
-    completed_tests: int
-    failed_tests: int
-    success_rate: float
-    total_execution_time: float
-    start_time: str
-    end_time: str | None
-    results: List[ExperimentResult]
-    experiment_directory: str | None = None
 
 
 class ExperimentExecutor:
@@ -245,10 +129,7 @@ class ExperimentExecutor:
         filepath = folder / filename
 
         # Prepare data to save
-        save_data = {
-            "results": result.model_dump(),
-            "saved_at": datetime.now().isoformat(),
-        }
+        save_data = result.model_dump()
 
         try:
             with open(filepath, "w") as f:
@@ -283,6 +164,7 @@ class ExperimentExecutor:
                 assistant_id=assistant_id,
                 text=question,
                 stop_condition="completedAt",
+                max_wait=120,
             )
 
             message = Message.model_validate(result)
@@ -326,18 +208,18 @@ class ExperimentExecutor:
         # Create experiment directory structure
         experiment_dir = self.create_experiment_directory(assistant_ids, questions)
 
-        print(
+        logger.info(
             f"Starting experiment with {len(assistant_ids)} assistants and {len(questions)} questions..."
         )
-        print(f"Total tests to run: {total_tests}")
+        logger.info(f"Total tests to run: {total_tests}")
 
         for assistant_id in assistant_ids:
             for question in questions:
                 test_counter += 1
 
-                print(f"\nRunning test {test_counter}/{total_tests}")
-                print(f"Assistant: {assistant_id}")
-                print(
+                logger.info(f"\nRunning test {test_counter}/{total_tests}")
+                logger.info(f"Assistant: {assistant_id}")
+                logger.info(
                     f"Question: {question[:100]}{'...' if len(question) > 100 else ''}"
                 )
 
@@ -345,11 +227,12 @@ class ExperimentExecutor:
                 message, error, execution_time = self.run_experiment_sync(
                     assistant_id, question
                 )
-
+                
                 # Create result
                 result = ExperimentResult(
                     test_id=test_counter,
                     assistant_id=assistant_id,
+                    question=question,
                     success=message is not None,
                     error=error,
                     execution_time=execution_time,
@@ -366,11 +249,11 @@ class ExperimentExecutor:
                 if progress_callback:
                     progress_callback(test_counter, total_tests, result)
 
-                print(f"Result: {'✅ Success' if result.success else '❌ Failed'}")
-                print(f"Execution time: {execution_time:.2f}s")
+                logger.info(f"Result: {'✅ Success' if result.success else '❌ Failed'}")
+                logger.info(f"Execution time: {execution_time:.2f}s")
 
                 if error:
-                    print(f"Error: {error}")
+                    logger.error(f"Error: {error}")
 
         # Calculate summary statistics
         completed_tests = sum(1 for r in results if r.success)
@@ -393,13 +276,13 @@ class ExperimentExecutor:
         # Save summary to experiment directory
         self.save_experiment_summary(summary)
 
-        print("\n🎉 Experiment completed!")
-        print(f"Total tests: {total_tests}")
-        print(f"Successful: {completed_tests}")
-        print(f"Failed: {failed_tests}")
-        print(f"Success rate: {success_rate:.1f}%")
-        print(f"Total execution time: {total_execution_time:.2f}s")
-        print(f"Results saved to: {experiment_dir}")
+        logger.info("\n🎉 Experiment completed!")
+        logger.info(f"Total tests: {total_tests}")
+        logger.info(f"Successful: {completed_tests}")
+        logger.info(f"Failed: {failed_tests}")
+        logger.info(f"Success rate: {success_rate:.1f}%")
+        logger.info(f"Total execution time: {total_execution_time:.2f}s")
+        logger.info(f"Results saved to: {experiment_dir}")
 
         return summary
 
@@ -414,7 +297,7 @@ class ExperimentExecutor:
             The filename where summary was saved
         """
         if not self.experiment_directory:
-            print("Warning: No experiment directory set")
+            logger.warning("Warning: No experiment directory set")
             return ""
 
         base_path = Path(self.experiment_directory)
@@ -426,7 +309,7 @@ class ExperimentExecutor:
         with open(summary_file, "w") as f:
             json.dump(data, f, indent=2)
 
-        print(f"Experiment summary saved to: {summary_file}")
+        logger.info(f"Experiment summary saved to: {summary_file}")
         return str(summary_file)
 
     def save_results(
@@ -457,5 +340,5 @@ class ExperimentExecutor:
         with open(filename, "w") as f:
             json.dump(data, f, indent=2)
 
-        print(f"Results saved to: {filename}")
+        logger.info(f"Results saved to: {filename}")
         return filename

@@ -7,6 +7,7 @@ import time
 from typing import List
 from config import ConfigManager
 from experiment_executor import ExperimentExecutor
+from schemas import ExperimentResult
 
 
 class ExperimentRunnerComponent:
@@ -573,14 +574,10 @@ class ExperimentRunnerComponent:
                     assistant_id, question
                 )
 
-                # Create result
-                from experiment_executor import ExperimentResult
-
                 result = ExperimentResult(
                     test_id=current_test_num,
                     assistant_id=assistant_id,
                     question=question,
-                    response=message.text if message else None,
                     success=message is not None,
                     error=error,
                     execution_time=execution_time,
