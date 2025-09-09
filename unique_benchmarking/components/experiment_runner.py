@@ -286,9 +286,18 @@ class ExperimentRunnerComponent:
 
         # Running status
         if st.session_state.experiment_running:
-            st.info("🔄 Experiment is running...")
+            st.info("🔄 Experiment is running using simplified question-round workflow...")
+            
+            # Show workflow information
+            st.markdown("""
+            **New Workflow Process:**
+            1. 🔮 Get golden answer for each question
+            2. 🤖 Test question on all assistants
+            3. 📊 Aggregate results into one object
+            4. 💾 Save round results to file
+            """)
 
-            # Execute next test if parameters are available
+            # Execute experiment if parameters are available
             if hasattr(st.session_state, "experiment_executor_params"):
                 ExperimentRunnerComponent._execute_next_test()
 
@@ -300,10 +309,10 @@ class ExperimentRunnerComponent:
             if total_tests > 0:
                 st.progress(
                     progress,
-                    text=f"Running test {current_test} of {total_tests} ({progress * 100:.1f}%)",
+                    text=f"Processing test {current_test} of {total_tests} ({progress * 100:.1f}%)",
                 )
             else:
-                st.progress(0.0, text="Preparing to run experiments...")
+                st.progress(0.0, text="Preparing question rounds...")
 
             # Auto-refresh while running
             if st.session_state.experiment_running:
@@ -385,6 +394,8 @@ class ExperimentRunnerComponent:
             company_id=config.company_id,
             app_id=config.app_id,
             api_key=config.api_key,
+            base_url=config.base_url,
+            timeout=config.timeout,
         )
 
         # Store executor in session state
@@ -407,7 +418,8 @@ class ExperimentRunnerComponent:
             "questions": st.session_state.experiment_questions.copy(),
         }
 
-        st.success("🚀 Experiment started!")
+        st.success("🚀 Experiment started! Using simplified question-round workflow.")
+        st.info("📝 New workflow: For each question → Get golden answer → Test all assistants → Save round results")
         st.rerun()
 
     @staticmethod
@@ -418,10 +430,10 @@ class ExperimentRunnerComponent:
         # Clean up experiment execution state
         if hasattr(st.session_state, "experiment_executor_params"):
             delattr(st.session_state, "experiment_executor_params")
-        if hasattr(st.session_state, "experiment_test_queue"):
-            delattr(st.session_state, "experiment_test_queue")
-        if hasattr(st.session_state, "experiment_completed_tests"):
-            delattr(st.session_state, "experiment_completed_tests")
+        if hasattr(st.session_state, "experiment_executed"):
+            delattr(st.session_state, "experiment_executed")
+        if hasattr(st.session_state, "experiment_completed"):
+            delattr(st.session_state, "experiment_completed")
 
         st.warning("⏹️ Experiment stopped")
         st.rerun()
@@ -541,111 +553,69 @@ class ExperimentRunnerComponent:
 
     @staticmethod
     def _execute_next_test() -> None:
-        """Execute the next test in the experiment queue."""
+        """Execute experiment using the new simplified question-round workflow."""
         if not hasattr(st.session_state, "experiment_executor_params"):
             return
 
         params = st.session_state.experiment_executor_params
-        executor = params["executor"]
+        executor : ExperimentExecutor = params["executor"]
         assistant_ids = params["assistant_ids"]
         questions = params["questions"]
 
-        # Initialize test queue if not exists
-        if not hasattr(st.session_state, "experiment_test_queue"):
-            test_queue = []
-            for assistant_id in assistant_ids:
-                for question in questions:
-                    test_queue.append((assistant_id, question))
-            st.session_state.experiment_test_queue = test_queue
-            st.session_state.experiment_completed_tests = []
+        # Check if experiment has already been executed
+        if hasattr(st.session_state, "experiment_executed"):
+            return
 
-            # Create experiment directory
-            executor.create_experiment_directory(assistant_ids, questions)
+        # Mark as executed to prevent re-execution
+        st.session_state.experiment_executed = True
+        st.session_state.experiment_results = []
 
-        # Get next test from queue
-        if st.session_state.experiment_test_queue:
-            assistant_id, question = st.session_state.experiment_test_queue.pop(0)
-            current_test_num = len(st.session_state.experiment_completed_tests) + 1
-            total_tests = st.session_state.experiment_total_tests
-
-            # Execute single test
-            try:
-                message, error, execution_time = executor.run_experiment_sync(
-                    assistant_id, question
-                )
-
-                result = ExperimentResult(
-                    test_id=current_test_num,
-                    assistant_id=assistant_id,
-                    question=question,
-                    success=message is not None,
-                    error=error,
-                    execution_time=execution_time,
-                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
-                    message=message,
-                )
-
-                # Save individual result
-                executor.save_individual_result(result)
-
-                # Update session state
+        # Run the full experiment using the new simplified workflow
+        try:
+            # Define progress callback to update UI
+            def progress_callback(current_test: int, total_tests: int, result: ExperimentResult):
+                # Update progress based on current test
+                st.session_state.experiment_current_test = current_test
+                st.session_state.experiment_progress = current_test / total_tests
+                
+                # Add result to session state for display
                 st.session_state.experiment_results.append(result)
-                st.session_state.experiment_completed_tests.append(result)
-                st.session_state.experiment_current_test = current_test_num
-                st.session_state.experiment_progress = current_test_num / total_tests
 
-            except Exception as e:
-                st.session_state.experiment_error = str(e)
-                st.session_state.experiment_running = False
-                return
+            # Execute the full experiment with the new workflow
+            summary = executor.run_full_experiment(
+                assistant_ids=assistant_ids,
+                questions=questions,
+                progress_callback=progress_callback
+            )
 
-        # Check if experiment is complete
-        if not st.session_state.experiment_test_queue:
-            # All tests completed
-            ExperimentRunnerComponent._finalize_experiment()
+            # Store the summary and mark as complete
+            st.session_state.experiment_summary = summary
+            st.session_state.experiment_running = False
+            st.session_state.experiment_completed = True
+
+            # Update final progress
+            st.session_state.experiment_progress = 1.0
+            st.session_state.experiment_current_test = summary.total_tests
+
+            st.success("🎉 Experiment completed successfully!")
+            st.info(f"✅ Processed {len(questions)} question rounds with {len(assistant_ids)} assistants each")
+
+        except Exception as e:
+            st.session_state.experiment_error = str(e)
+            st.session_state.experiment_running = False
+            st.error(f"❌ Experiment failed: {str(e)}")
+            return
 
     @staticmethod
     def _finalize_experiment() -> None:
-        """Finalize the experiment and save summary."""
-        if not hasattr(st.session_state, "experiment_executor_params"):
-            return
-
-        executor = st.session_state.experiment_executor_params["executor"]
-        results = st.session_state.experiment_completed_tests
-
-        # Calculate summary statistics
-        total_tests = len(results)
-        completed_tests = sum(1 for r in results if r.success)
-        failed_tests = total_tests - completed_tests
-        success_rate = (completed_tests / total_tests) * 100 if total_tests > 0 else 0
-        total_execution_time = sum(r.execution_time for r in results)
-
-        # Create summary
-        from experiment_executor import ExperimentSummary
-
-        summary = ExperimentSummary(
-            total_tests=total_tests,
-            completed_tests=completed_tests,
-            failed_tests=failed_tests,
-            success_rate=success_rate,
-            total_execution_time=total_execution_time,
-            start_time=st.session_state.get("experiment_start_time", ""),
-            end_time=time.strftime("%Y-%m-%d %H:%M:%S"),
-            results=results,
-            experiment_directory=executor.experiment_directory,
-        )
-
-        # Save summary
-        executor.save_experiment_summary(summary)
-
-        # Update session state
-        st.session_state.experiment_summary = summary
-        st.session_state.experiment_running = False
-
-        # Clean up
+        """Finalize the experiment and clean up (summary is already handled by new workflow)."""
+        # Clean up session state
         if hasattr(st.session_state, "experiment_executor_params"):
             delattr(st.session_state, "experiment_executor_params")
-        if hasattr(st.session_state, "experiment_test_queue"):
-            delattr(st.session_state, "experiment_test_queue")
-        if hasattr(st.session_state, "experiment_completed_tests"):
-            delattr(st.session_state, "experiment_completed_tests")
+        if hasattr(st.session_state, "experiment_executed"):
+            delattr(st.session_state, "experiment_executed")
+        
+        # Mark experiment as completed
+        st.session_state.experiment_running = False
+        if not hasattr(st.session_state, "experiment_completed"):
+            st.session_state.experiment_completed = True

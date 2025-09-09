@@ -5,8 +5,11 @@ Experiment explorer component for browsing and analyzing experiment results.
 import streamlit as st
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from schemas import ExperimentResult
+from typing import List, Dict, Any
+from datetime import datetime
+from schemas import ExperimentResult, ExperimentSummary, QuestionResult
+from components.experiment_summary_render import render_experiment_summary
+import pandas as pd
 
 
 class ExperimentExplorerComponent:
@@ -171,7 +174,16 @@ class ExperimentExplorerComponent:
         exp_path = Path(selected_exp["path"])
 
         st.markdown("---")
-        st.subheader(f"📊 Analysis: {selected_exp['name']}")
+
+        # Add markdown report generation button
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader(f"📊 Analysis: {selected_exp['name']}")
+        with col2:
+            if st.button("📄 Export HTML Report", key="generate_markdown_btn"):
+                ExperimentExplorerComponent._generate_markdown_report(
+                    exp_path, selected_exp["name"]
+                )
 
         # Load all result files
         results = ExperimentExplorerComponent._load_experiment_results(exp_path)
@@ -180,17 +192,26 @@ class ExperimentExplorerComponent:
             st.warning("No result files found in this experiment.")
             return
 
-        # Create analysis table
-        ExperimentExplorerComponent._render_analysis_table(results)
+        # Try to load experiment summary for question-centric display
+        summary = ExperimentExplorerComponent._load_experiment_summary(exp_path)
+        
+        if summary and hasattr(summary, 'question_results') and summary.question_results:
+            # New question-centric display
+            ExperimentExplorerComponent._render_question_centric_results(summary)
+        else:
+            # Fallback to old format
+            st.info("Using legacy result format (no question-centric data available)")
+            # Create analysis table
+            ExperimentExplorerComponent._render_analysis_table(results)
 
-        # Show detailed results
-        ExperimentExplorerComponent._render_detailed_results(results)
+            # Show detailed results
+            ExperimentExplorerComponent._render_detailed_results(results)
 
     @staticmethod
     def _load_experiment_results(exp_path: Path) -> List[ExperimentResult]:
         """Load all result files from an experiment directory."""
         results = []
-        
+
         # Load successful results
         success_dir = exp_path / "success"
         if success_dir.exists():
@@ -198,10 +219,12 @@ class ExperimentExplorerComponent:
                 try:
                     with open(result_file, "r") as f:
                         raw_data = json.load(f)
-                    
+
                     # Handle nested structure with "results" key
                     if "results" in raw_data:
-                        result_data = ExperimentResult.model_validate(raw_data["results"])
+                        result_data = ExperimentResult.model_validate(
+                            raw_data["results"]
+                        )
                     else:
                         result_data = ExperimentResult.model_validate(raw_data)
 
@@ -218,10 +241,12 @@ class ExperimentExplorerComponent:
                 try:
                     with open(result_file, "r") as f:
                         raw_data = json.load(f)
-                    
+
                     # Handle nested structure with "results" key
                     if "results" in raw_data:
-                        result_data = ExperimentResult.model_validate(raw_data["results"])
+                        result_data = ExperimentResult.model_validate(
+                            raw_data["results"]
+                        )
                     else:
                         result_data = ExperimentResult.model_validate(raw_data)
 
@@ -400,3 +425,341 @@ class ExperimentExplorerComponent:
                         st.json(result.message.debugInfo)
 
                 st.markdown("---")
+
+    @staticmethod
+    def _render_question_centric_results(summary: ExperimentSummary) -> None:
+        """Render results organized by questions with golden answers and assistant results."""
+        st.markdown("### 📝 Question-Centric Results Analysis")
+        
+        st.info(f"🔍 Displaying results for {len(summary.question_results)} questions with golden answers")
+        
+        # Overall summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Questions", len(summary.question_results))
+        
+        with col2:
+            golden_answers_count = sum(1 for qr in summary.question_results if qr.golden_answer)
+            st.metric("Golden Answers", golden_answers_count)
+        
+        with col3:
+            avg_success_rate = sum(qr.success_rate for qr in summary.question_results) / len(summary.question_results) if summary.question_results else 0
+            st.metric("Avg Success Rate", f"{avg_success_rate:.1f}%")
+        
+        with col4:
+            total_assistants = summary.question_results[0].total_assistants if summary.question_results else 0
+            st.metric("Assistants per Question", total_assistants)
+
+        # Export evaluations button
+        if st.button("📥 Export All Evaluations", help="Download all reviewer evaluations as JSON"):
+            ExperimentExplorerComponent._export_evaluations()
+
+        st.markdown("---")
+        
+        # Render each question
+        for i, question_result in enumerate(summary.question_results, 1):
+            ExperimentExplorerComponent._render_single_question_result(question_result, i)
+            
+            # Add separator between questions
+            if i < len(summary.question_results):
+                st.markdown("---")
+
+    @staticmethod
+    def _render_single_question_result(question_result: QuestionResult, question_num: int) -> None:
+        """Render a single question with its golden answer and assistant results."""
+        
+        # Question Header
+        st.markdown(f"## 🔤 Question {question_num}")
+        st.markdown(f"**{question_result.question}**")
+        
+        # Question metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Assistants", question_result.total_assistants)
+        with col2:
+            st.metric("Successful", question_result.successful_assistants)
+        with col3:
+            st.metric("Failed", question_result.failed_assistants)
+        with col4:
+            st.metric("Success Rate", f"{question_result.success_rate:.1f}%")
+        
+        # Golden Answer Section
+        if question_result.golden_answer:
+            st.markdown("### 🏆 Golden Answer")
+            
+            # Golden answer metadata
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.caption(f"**Model:** {question_result.golden_answer.model}")
+            with col2:
+                st.caption(f"**Generation Time:** {question_result.golden_answer.generation_time:.2f}s")
+            with col3:
+                st.caption(f"**Timestamp:** {question_result.golden_answer.timestamp}")
+            
+            # Golden answer content
+            with st.expander("📖 View Golden Answer", expanded=True):
+                st.markdown(question_result.golden_answer.answer)
+        else:
+            st.warning("⚠️ No golden answer available for this question")
+        
+        # Assistant Results Table
+        st.markdown("### 🤖 Assistant Results")
+        
+        if question_result.assistant_results:
+            # Prepare table data
+            table_data = []
+            for result in question_result.assistant_results:
+                # Get assessment info
+                hallucination_level = "❌"
+                assessment_message = "N/A"
+                
+                if result.message and result.message.assessment:
+                    assessment_message = result.message.assessment[0].explanation if result.message.assessment[0].explanation else result.message.assessment[0].label
+                    hallucination_level = ExperimentExplorerComponent._convert_assessment_message_to_emoji(
+                        result.message.assessment[0].label
+                    )
+                
+                # Truncate message for table display
+                message_preview = "N/A"
+                if result.message and result.message.text:
+                    message_preview = result.message.text[:200] + "..." if len(result.message.text) > 200 else result.message.text
+                
+                table_data.append({
+                    "Assistant ID": result.assistant_id,
+                    "Status": "✅" if result.success else "❌",
+                    "Duration": f"{result.execution_time:.2f}s",
+                    "Chat ID": result.message.chatId if result.message else "N/A",
+                    "Hallucination": hallucination_level,
+                    "Assessment": assessment_message,
+                    "Response Preview": message_preview
+                })
+            
+            # Display table
+            df = pd.DataFrame(table_data)
+            st.dataframe(df, width='stretch', hide_index=True)
+            
+            # Detailed responses in expandable sections
+            st.markdown("#### 📋 Detailed Responses")
+            
+            for result in question_result.assistant_results:
+                status_icon = "✅" if result.success else "❌"
+                with st.expander(f"{status_icon} {result.assistant_id} - {result.execution_time:.2f}s"):
+                    
+                    # Basic info
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown(f"**Chat ID:** {result.message.chatId if result.message else 'N/A'}")
+                        st.markdown(f"**Status:** {status_icon}")
+                        st.markdown(f"**Duration:** {result.execution_time:.2f}s")
+                    
+                    with col2:
+                        st.markdown(f"**Timestamp:** {result.timestamp}")
+                        if result.error:
+                            st.error(f"**Error:** {result.error}")
+                    
+                    # Response content
+                    if result.message and result.message.text:
+                        st.markdown("**Response:**")
+                        st.markdown(result.message.text)
+                    
+                    # Assessment
+                    if result.message and result.message.assessment:
+                        st.markdown("**Assessment:**")
+                        assessment = result.message.assessment[0]
+                        st.markdown(f"**Level:** {ExperimentExplorerComponent._convert_assessment_message_to_emoji(assessment.label)} {assessment.label}")
+                        if assessment.explanation:
+                            st.markdown(f"**Explanation:** {assessment.explanation}")
+                    
+                    # Reviewer Interface
+                    st.markdown("---")
+                    st.markdown("**👤 Reviewer Evaluation:**")
+                    
+                    col1, col2 = st.columns([1, 2])
+                    
+                    with col1:
+                        # User-friendly score evaluator
+                        score_options = {
+                            "": "Select Score",
+                            "5": "⭐⭐⭐⭐⭐ Excellent (5)",
+                            "4": "⭐⭐⭐⭐☆ Very Good (4)", 
+                            "3": "⭐⭐⭐☆☆ Good (3)",
+                            "2": "⭐⭐☆☆☆ Fair (2)",
+                            "1": "⭐☆☆☆☆ Poor (1)",
+                            "0": "☆☆☆☆☆ Very Poor (0)"
+                        }
+                        
+                        selected_score = st.selectbox(
+                            "Quality Score:",
+                            options=list(score_options.keys()),
+                            format_func=lambda x: score_options[x],
+                            key=f"score_{result.test_id}_{result.assistant_id}",
+                            help="Rate the quality of this assistant's response"
+                        )
+                    
+                    with col2:
+                        # Comment text area
+                        comment = st.text_area(
+                            "Reviewer Comments:",
+                            placeholder="Enter your detailed feedback about this response...",
+                            height=100,
+                            key=f"comment_{result.test_id}_{result.assistant_id}",
+                            help="Provide specific feedback about accuracy, completeness, clarity, etc."
+                        )
+                    
+                    # Save evaluation button
+                    if st.button("💾 Save Evaluation", key=f"save_{result.test_id}_{result.assistant_id}"):
+                        if selected_score or comment:
+                            # Store evaluation in session state
+                            if "evaluations" not in st.session_state:
+                                st.session_state.evaluations = {}
+                            
+                            eval_key = f"{result.test_id}_{result.assistant_id}"
+                            st.session_state.evaluations[eval_key] = {
+                                "test_id": result.test_id,
+                                "assistant_id": result.assistant_id,
+                                "question": question_result.question,
+                                "score": selected_score if selected_score else "",
+                                "comment": comment,
+                                "timestamp": datetime.now().isoformat()
+                            }
+                            st.success("✅ Evaluation saved!")
+                        else:
+                            st.warning("Please provide at least a score or comment before saving.")
+        else:
+            st.warning("No assistant results found for this question")
+
+    @staticmethod
+    def _export_evaluations() -> None:
+        """Export all reviewer evaluations as a downloadable JSON file."""
+        if "evaluations" not in st.session_state or not st.session_state.evaluations:
+            st.warning("No evaluations to export. Please evaluate some responses first.")
+            return
+        
+        # Prepare evaluation data
+        evaluations_data = {
+            "export_timestamp": datetime.now().isoformat(),
+            "total_evaluations": len(st.session_state.evaluations),
+            "evaluations": list(st.session_state.evaluations.values())
+        }
+        
+        # Create JSON string
+        import json
+        json_data = json.dumps(evaluations_data, indent=2)
+        
+        # Generate filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"reviewer_evaluations_{timestamp}.json"
+        
+        # Offer download
+        st.download_button(
+            label="📥 Download Evaluations JSON",
+            data=json_data,
+            file_name=filename,
+            mime="application/json",
+            help=f"Download {len(st.session_state.evaluations)} evaluations as JSON file"
+        )
+        
+        # Show summary
+        st.success(f"✅ Ready to download {len(st.session_state.evaluations)} evaluations!")
+        
+        # Show evaluation summary
+        with st.expander("📊 Evaluation Summary", expanded=True):
+            scores = [eval_data["score"] for eval_data in st.session_state.evaluations.values() if eval_data["score"]]
+            if scores:
+                score_counts = {}
+                for score in scores:
+                    score_counts[score] = score_counts.get(score, 0) + 1
+                
+                st.write("**Score Distribution:**")
+                for score in sorted(score_counts.keys(), reverse=True):
+                    count = score_counts[score]
+                    stars = "⭐" * int(score) + "☆" * (5 - int(score)) if score else "No Score"
+                    st.write(f"- {stars} ({score}): {count} evaluations")
+            
+            comments_count = len([eval_data for eval_data in st.session_state.evaluations.values() if eval_data["comment"].strip()])
+            st.write(f"**Comments:** {comments_count} responses have detailed comments")
+
+    @staticmethod
+    def _load_experiment_summary(exp_path: Path) -> ExperimentSummary | None:
+        """Load experiment_summary.json file from the experiment directory."""
+        summary_file = exp_path / "experiment_summary.json"
+
+        if not summary_file.exists():
+            st.error(f"No experiment_summary.json found in {exp_path}")
+            return None
+
+        try:
+            with open(summary_file, "r") as f:
+                return ExperimentSummary.model_validate_json(f.read())
+        except Exception as e:
+            st.error(f"Error loading experiment summary: {e}")
+            return None
+
+    @staticmethod
+    def _generate_markdown_report(exp_path: Path, experiment_name: str) -> None:
+        """Generate and export an HTML report from the experiment summary."""
+        # Load the experiment summary
+        summary_data = ExperimentExplorerComponent._load_experiment_summary(exp_path)
+
+        if not summary_data:
+            return
+
+        try:
+            # Generate the HTML report content using the existing render function
+            html_content = render_experiment_summary(summary_data)
+
+            # Load the HTML template
+            template_path = (
+                Path(__file__).parent.parent / "experiment_report_template.html"
+            )
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
+
+            # Clean experiment name for use in JavaScript identifiers
+            experiment_name_clean = (
+                experiment_name.replace(" ", "_").replace(":", "_").replace("-", "_")
+            )
+
+            # Replace template variables
+            complete_html = template_content.replace(
+                "{{ experiment_name }}", experiment_name
+            )
+            complete_html = complete_html.replace(
+                "{{ experiment_name_clean }}", experiment_name_clean
+            )
+            complete_html = complete_html.replace(
+                "{{ start_time }}", summary_data.start_time
+            )
+            complete_html = complete_html.replace(
+                "{{ end_time }}", summary_data.end_time or "In Progress"
+            )
+            complete_html = complete_html.replace("{{ html_content }}", html_content)
+
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"experiment_report_{experiment_name}_{timestamp}.html"
+
+            # Offer the file for download
+            st.success("✅ HTML report generated successfully!")
+            st.download_button(
+                label="📥 Download HTML Report",
+                data=complete_html,
+                file_name=filename,
+                mime="text/html",
+                help="Click to download the complete HTML experiment report",
+            )
+
+            # Show a preview of what was generated
+            st.info(f"📄 Report contains {len(summary_data.results)} test results")
+            with st.expander("🔍 Preview Report Content", expanded=False):
+                st.write("The report includes:")
+                st.write("- Summary statistics table")
+                st.write("- Detailed results table with all test data")
+                st.write("- Properly formatted markdown content in answers")
+                st.write("- Professional styling and layout")
+
+        except Exception as e:
+            st.error(f"Error generating HTML report: {e}")
+            st.exception(e)

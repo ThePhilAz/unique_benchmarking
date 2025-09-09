@@ -66,28 +66,30 @@ class MainContentComponent:
         **App ID:** {config.app_id}
         
         **API Key:** {ConfigManager.get_masked_api_key()}
+        
+        **Timeout:** {config.timeout} seconds
         """)
 
-        # Cache information
-        cache_info = ConfigManager.get_cache_info()
-        if cache_info["exists"]:
+        # Env file information
+        env_info = ConfigManager.get_env_info()
+        if env_info["exists"]:
             import datetime
 
             modified_time = "Unknown"
-            if cache_info["modified"]:
+            if env_info["modified"]:
                 modified_time = datetime.datetime.fromtimestamp(
-                    cache_info["modified"]
+                    env_info["modified"]
                 ).strftime("%Y-%m-%d %H:%M:%S")
 
             st.success(f"""
-            **💾 Persistent Cache Status:**
+            **💾 Configuration File Status:**
             - Status: Active
-            - Size: {cache_info["size"]} bytes
+            - Size: {env_info["size"]} bytes
             - Last Modified: {modified_time}
-            - Path: {cache_info["path"]}
+            - Path: {env_info["path"]}
             """)
         else:
-            st.warning("💾 No persistent cache found")
+            st.warning("💾 No configuration file found")
 
     @staticmethod
     def _render_next_steps() -> None:

@@ -155,37 +155,39 @@ class DisplayUtils:
 
 class LoggingUtils:
     """Utilities for logging integration with Streamlit."""
-    
+
     @staticmethod
     @contextlib.contextmanager
     def capture_logs():
         """Context manager to capture logs and return them as a string."""
         log_capture = io.StringIO()
         handler = logging.StreamHandler(log_capture)
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+
         # Get the root logger
         logger = logging.getLogger()
         logger.addHandler(handler)
-        
+
         try:
             yield log_capture
         finally:
             logger.removeHandler(handler)
-    
+
     @staticmethod
     def display_logs_in_streamlit(log_output: str):
         """Display captured logs in a Streamlit expander."""
         if log_output.strip():
             with st.expander("📋 Execution Logs", expanded=False):
                 st.text(log_output)
-    
+
     @staticmethod
     def create_streamlit_log_handler():
         """Create a custom log handler that stores logs in session state."""
-        if 'logs' not in st.session_state:
+        if "logs" not in st.session_state:
             st.session_state.logs = []
-        
+
         class StreamlitLogHandler(logging.Handler):
             def emit(self, record):
                 log_entry = self.format(record)
@@ -193,7 +195,9 @@ class LoggingUtils:
                 # Keep only last 100 log entries
                 if len(st.session_state.logs) > 100:
                     st.session_state.logs.pop(0)
-        
+
         handler = StreamlitLogHandler()
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
         return handler

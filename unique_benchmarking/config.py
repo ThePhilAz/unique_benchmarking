@@ -5,7 +5,6 @@ Handles session state initialization, configuration validation, and persistent s
 
 import streamlit as st
 import json
-import base64
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,121 +18,140 @@ class AppConfig:
     company_id: str = ""
     app_id: str = ""
     api_key: str = ""
+    base_url: str = ""
+    timeout: int = 120
     config_saved: bool = False
 
 
 class ConfigManager:
     """Manages application configuration, session state, and persistent storage."""
 
-    CONFIG_KEYS = ["user_id", "company_id", "app_id", "api_key", "config_saved"]
+    CONFIG_KEYS = [
+        "user_id",
+        "company_id",
+        "app_id",
+        "api_key",
+        "base_url",
+        "timeout",
+        "config_saved",
+    ]
     EXPERIMENT_KEYS = [
         "experiment_assistant_ids",
         "experiment_questions",
         "experiment_configured",
     ]
-    CACHE_FILE = ".env.cache"
+    ENV_FILE = "unique.env"
     EXPERIMENT_CACHE_FILE = ".experiment.cache"
     EXPERIMENT_HISTORY_FILE = ".experiment_history.json"
 
     @staticmethod
-    def _get_cache_file_path() -> Path:
-        """Get the path to the cache file."""
-        return Path(ConfigManager.CACHE_FILE)
+    def _get_env_file_path() -> Path:
+        """Get the path to the env file."""
+        return Path(ConfigManager.ENV_FILE)
 
     @staticmethod
-    def _encode_sensitive_data(data: str) -> str:
-        """Simple base64 encoding for sensitive data (not cryptographically secure)."""
-        if not data:
-            return ""
-        return base64.b64encode(data.encode()).decode()
+    def _load_from_env() -> Optional[Dict[str, Any]]:
+        """Load configuration from unique.env file."""
+        env_file = ConfigManager._get_env_file_path()
 
-    @staticmethod
-    def _decode_sensitive_data(encoded_data: str) -> str:
-        """Decode base64 encoded sensitive data."""
-        if not encoded_data:
-            return ""
-        try:
-            return base64.b64decode(encoded_data.encode()).decode()
-        except Exception:
-            return ""
-
-    @staticmethod
-    def _load_from_cache() -> Optional[Dict[str, Any]]:
-        """Load configuration from cache file."""
-        cache_file = ConfigManager._get_cache_file_path()
-
-        if not cache_file.exists():
+        if not env_file.exists():
             return None
 
         try:
-            with open(cache_file, "r") as f:
-                cached_data = json.load(f)
+            config_data = {}
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip()
 
-            # Decode sensitive data
-            if "api_key" in cached_data:
-                cached_data["api_key"] = ConfigManager._decode_sensitive_data(
-                    cached_data["api_key"]
-                )
+                        # Map env keys to config keys
+                        if key == "USER_ID":
+                            config_data["user_id"] = value
+                        elif key == "COMPANY_ID":
+                            config_data["company_id"] = value
+                        elif key == "APP_ID":
+                            config_data["app_id"] = value
+                        elif key == "API_KEY":
+                            config_data["api_key"] = value
+                        elif key == "BASE_URL":
+                            config_data["base_url"] = value
+                        elif key == "TIMEOUT":
+                            try:
+                                config_data["timeout"] = int(value)
+                            except ValueError:
+                                config_data["timeout"] = 120
 
-            return cached_data
+            # Mark as saved if we have the required fields
+            if all(
+                key in config_data
+                for key in ["user_id", "company_id", "app_id", "api_key", "base_url"]
+            ):
+                config_data["config_saved"] = True
+            else:
+                config_data["config_saved"] = False
+
+            return config_data
         except Exception as e:
-            st.error(f"Error loading cache: {e}")
+            st.error(f"Error loading env file: {e}")
             return None
 
     @staticmethod
-    def _save_to_cache(config_data: Dict[str, Any]) -> bool:
-        """Save configuration to cache file."""
+    def _save_to_env(config_data: Dict[str, Any]) -> bool:
+        """Save configuration to unique.env file."""
         try:
-            cache_file = ConfigManager._get_cache_file_path()
+            env_file = ConfigManager._get_env_file_path()
 
-            # Create a copy to avoid modifying the original
-            data_to_save = config_data.copy()
-
-            # Encode sensitive data
-            if "api_key" in data_to_save:
-                data_to_save["api_key"] = ConfigManager._encode_sensitive_data(
-                    data_to_save["api_key"]
-                )
-
-            with open(cache_file, "w") as f:
-                json.dump(data_to_save, f, indent=2)
+            with open(env_file, "w") as f:
+                f.write(f"USER_ID={config_data.get('user_id', '')}\n")
+                f.write(f"COMPANY_ID={config_data.get('company_id', '')}\n")
+                f.write("\n")  # Empty line for readability
+                f.write(f"APP_ID={config_data.get('app_id', '')}\n")
+                f.write(f"API_KEY={config_data.get('api_key', '')}\n")
+                f.write(f"BASE_URL={config_data.get('base_url', '')}\n")
+                f.write(f"TIMEOUT={config_data.get('timeout', 120)}\n")
+                f.write(f"CONFIG_SAVED={config_data.get('config_saved', False)}\n")
 
             return True
         except Exception as e:
-            st.error(f"Error saving cache: {e}")
+            st.error(f"Error saving env file: {e}")
             return False
 
     @staticmethod
-    def _delete_cache() -> bool:
-        """Delete the cache file."""
+    def _delete_env() -> bool:
+        """Delete the env file."""
         try:
-            cache_file = ConfigManager._get_cache_file_path()
-            if cache_file.exists():
-                cache_file.unlink()
+            env_file = ConfigManager._get_env_file_path()
+            if env_file.exists():
+                env_file.unlink()
             return True
         except Exception as e:
-            st.error(f"Error deleting cache: {e}")
+            st.error(f"Error deleting env file: {e}")
             return False
 
     @staticmethod
     def initialize_session_state() -> None:
-        """Initialize session state with default values, loading from cache if available."""
+        """Initialize session state with default values, loading from env file if available."""
         defaults = {
             "user_id": "",
             "company_id": "",
             "app_id": "",
             "api_key": "",
+            "base_url": "",
+            "timeout": 120,
             "config_saved": False,
         }
 
-        # Try to load from cache first
-        cached_data = ConfigManager._load_from_cache()
+        # Try to load from env file first
+        env_data = ConfigManager._load_from_env()
 
         for key, default_value in defaults.items():
             if key not in st.session_state:
-                # Use cached value if available, otherwise use default
-                if cached_data and key in cached_data:
-                    st.session_state[key] = cached_data[key]
+                # Use env value if available, otherwise use default
+                if env_data and key in env_data:
+                    st.session_state[key] = env_data[key]
                 else:
                     st.session_state[key] = default_value
 
@@ -145,11 +163,20 @@ class ConfigManager:
             company_id=st.session_state.get("company_id", ""),
             app_id=st.session_state.get("app_id", ""),
             api_key=st.session_state.get("api_key", ""),
+            base_url=st.session_state.get("base_url", ""),
+            timeout=st.session_state.get("timeout", 120),
             config_saved=st.session_state.get("config_saved", False),
         )
 
     @staticmethod
-    def save_config(user_id: str, company_id: str, app_id: str, api_key: str) -> bool:
+    def save_config(
+        user_id: str,
+        company_id: str,
+        app_id: str,
+        api_key: str,
+        base_url: str,
+        timeout: int = 120,
+    ) -> bool:
         """
         Save configuration to session state and persistent cache.
 
@@ -158,6 +185,7 @@ class ConfigManager:
             company_id: Company ID
             app_id: Application ID
             api_key: API Key
+            timeout: Timeout in seconds (default: 120)
 
         Returns:
             bool: True if all fields are provided and saved, False otherwise
@@ -170,22 +198,24 @@ class ConfigManager:
         st.session_state.company_id = company_id
         st.session_state.app_id = app_id
         st.session_state.api_key = api_key
+        st.session_state.base_url = base_url
+        st.session_state.timeout = timeout
         st.session_state.config_saved = True
 
-        # Save to persistent cache
+        # Save to env file
         config_data = {
             "user_id": user_id,
             "company_id": company_id,
             "app_id": app_id,
             "api_key": api_key,
+            "base_url": base_url,
+            "timeout": timeout,
             "config_saved": True,
         }
 
-        cache_saved = ConfigManager._save_to_cache(config_data)
-        if not cache_saved:
-            st.warning(
-                "Configuration saved to session but failed to save to persistent cache."
-            )
+        env_saved = ConfigManager._save_to_env(config_data)
+        if not env_saved:
+            st.warning("Configuration saved to session but failed to save to env file.")
 
         return True
 
@@ -196,13 +226,15 @@ class ConfigManager:
         for key in ConfigManager.CONFIG_KEYS:
             if key == "config_saved":
                 st.session_state[key] = False
+            elif key == "timeout":
+                st.session_state[key] = 120
             else:
                 st.session_state[key] = ""
 
-        # Delete persistent cache
-        cache_deleted = ConfigManager._delete_cache()
-        if not cache_deleted:
-            st.warning("Session cleared but failed to delete persistent cache.")
+        # Delete env file
+        env_deleted = ConfigManager._delete_env()
+        if not env_deleted:
+            st.warning("Session cleared but failed to delete env file.")
 
     @staticmethod
     def is_config_valid() -> bool:
@@ -213,6 +245,7 @@ class ConfigManager:
                 config.user_id,
                 config.company_id,
                 config.app_id,
+                config.base_url,
                 config.api_key,
                 config.config_saved,
             ]
@@ -225,35 +258,35 @@ class ConfigManager:
         return "*" * len(api_key) if api_key else ""
 
     @staticmethod
-    def cache_exists() -> bool:
-        """Check if cache file exists."""
-        return ConfigManager._get_cache_file_path().exists()
+    def env_exists() -> bool:
+        """Check if env file exists."""
+        return ConfigManager._get_env_file_path().exists()
 
     @staticmethod
-    def get_cache_info() -> Dict[str, Any]:
-        """Get information about the cache file."""
-        cache_file = ConfigManager._get_cache_file_path()
+    def get_env_info() -> Dict[str, Any]:
+        """Get information about the env file."""
+        env_file = ConfigManager._get_env_file_path()
 
-        if not cache_file.exists():
+        if not env_file.exists():
             return {
                 "exists": False,
-                "path": str(cache_file),
+                "path": str(env_file),
                 "size": 0,
                 "modified": None,
             }
 
         try:
-            stat = cache_file.stat()
+            stat = env_file.stat()
             return {
                 "exists": True,
-                "path": str(cache_file),
+                "path": str(env_file),
                 "size": stat.st_size,
                 "modified": stat.st_mtime,
             }
         except Exception:
             return {
                 "exists": True,
-                "path": str(cache_file),
+                "path": str(env_file),
                 "size": 0,
                 "modified": None,
             }
