@@ -412,8 +412,8 @@ class ExperimentRunner:
             time.sleep(1)  # Give it a moment to start
             st.rerun()
 
-        # Check if tracking has been going on too long (5 minutes timeout)
-        if tracking_start_time and (time.time() - tracking_start_time) > 300:
+        # Check if tracking has been going on too long (15 minutes timeout)
+        if tracking_start_time and (time.time() - tracking_start_time) > 900:
             st.warning(
                 "⚠️ Progress tracking timed out. The experiment may still be running."
             )
