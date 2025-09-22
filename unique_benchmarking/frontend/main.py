@@ -57,17 +57,19 @@ def main():
         # Add cache clearing button in sidebar for development
         st.sidebar.markdown("---")
         st.sidebar.markdown("### 🔧 Developer Tools")
-        if st.sidebar.button("🔄 Clear Cache", help="Clear cached data (for development)"):
+        if st.sidebar.button(
+            "🔄 Clear Cache", help="Clear cached data (for development)"
+        ):
             clear_api_client_cache()
             st.sidebar.success("Cache cleared!")
             st.rerun()
-        
+
         # Create clean tab navigation in main content area
         tab1, tab2 = st.tabs(["🚀 Run New Experiment", "📊 View Experiments"])
-        
+
         with tab1:
             render_experiment_runner(config)
-            
+
         with tab2:
             render_experiment_list(config)
 
@@ -77,8 +79,6 @@ def render_experiment_list(config: dict) -> None:
     manager = ExperimentManager()
     manager._config = config
     manager._render_experiments_list_tab()
-
-
 
 
 if __name__ == "__main__":

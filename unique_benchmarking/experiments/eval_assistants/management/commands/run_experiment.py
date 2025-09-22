@@ -162,28 +162,32 @@ class ExperimentRunner:
             return golden_answer
         except GoldenAnswer.DoesNotExist:
             # Golden answer doesn't exist, create a new one
-            logger.info(f"Golden answer not found for question {question}, generating new one")
-            
+            logger.info(
+                f"Golden answer not found for question {question}, generating new one"
+            )
+
             answer, success = self._generate_golden_answer(question)
-            
+
             # Use get_or_create to handle race conditions
             golden_answer, created = GoldenAnswer.objects.get_or_create(
                 question_hash=question_hash,
                 defaults={
-                    'model_name': model_name,
-                    'question': question,
-                    'answer': answer,
-                    'success': success,
-                    'started_at': timezone.now(),
-                    'ended_at': timezone.now(),
-                }
+                    "model_name": model_name,
+                    "question": question,
+                    "answer": answer,
+                    "success": success,
+                    "started_at": timezone.now(),
+                    "ended_at": timezone.now(),
+                },
             )
-            
+
             if created:
                 logger.info(f"Created new golden answer for question: {question}")
             else:
-                logger.info(f"Golden answer was created by another process for question: {question}")
-            
+                logger.info(
+                    f"Golden answer was created by another process for question: {question}"
+                )
+
             return golden_answer
 
     def run_assistant_query(
@@ -205,8 +209,12 @@ class ExperimentRunner:
             answer=message.text,
             processed_answer=message.get_optimized_text(),
             debug_info=message.debugInfo,
-            hallucination_level=message.assessment[0].label if message.assessment else None,
-            hallucination_reason=message.assessment[0].explanation if message.assessment else None,
+            hallucination_level=message.assessment[0].label
+            if message.assessment
+            else None,
+            hallucination_reason=message.assessment[0].explanation
+            if message.assessment
+            else None,
             references=references,
             success=success,
             started_at=started_at,

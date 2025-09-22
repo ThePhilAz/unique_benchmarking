@@ -3,8 +3,7 @@ API client for communicating with Django backend
 """
 
 import requests
-import streamlit as st
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 
 class APIClient:
@@ -34,14 +33,14 @@ class APIClient:
                 if hasattr(e, "response")
                 else None,
             }
-            
+
             # Try to get error details from response body
             if hasattr(e, "response") and e.response is not None:
                 try:
                     error_data["error_details"] = e.response.json()
-                except:
+                except Exception:
                     error_data["error_details"] = e.response.text
-            
+
             return error_data
 
     def get_configuration_status(self) -> Dict[str, Any]:

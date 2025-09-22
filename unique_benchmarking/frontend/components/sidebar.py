@@ -44,7 +44,7 @@ class ConfigurationSidebar:
             else:
                 return self._render_setup_state(status_data)
 
-    def _render_configured_state(self) -> Dict[str, Any]:
+    def _render_configured_state(self) -> Dict[str, Any] | None:
         """Render sidebar when system is already configured"""
         st.success("✅ System Configured")
 
@@ -65,7 +65,7 @@ class ConfigurationSidebar:
         st.write(f"**API URL:** {config_data.get('base_url', 'Not set')}")
         st.write(f"**Timeout:** {config_data.get('timeout', 600)}s")
         st.write(
-            f"**Golden Model:** {config_data.get('default_golden_model', 'gpt-4')}"
+            f"**Golden Model:** {config_data.get('default_golden_model', 'litellm:gpt-5')}"
         )
 
         # Edit configuration button
@@ -78,7 +78,7 @@ class ConfigurationSidebar:
 
         return config_data
 
-    def _render_setup_state(self, status_data: Dict[str, Any]) -> None:
+    def _render_setup_state(self, status_data: Dict[str, Any]) -> None | Dict[str, Any]:
         """Render sidebar when system needs initial setup"""
         st.warning("⚠️ Configuration Required")
         st.write(status_data.get("message", "System needs configuration"))
@@ -182,8 +182,9 @@ class ConfigurationSidebar:
                 cancel_button = st.form_submit_button("❌ Cancel")
 
             with col3:
-                if existing_config:
-                    test_button = st.form_submit_button("🧪 Test")
+                test_button = (
+                    st.form_submit_button("🧪 Test") if existing_config else False
+                )
 
             # Handle form submission
             if save_button:
@@ -210,7 +211,7 @@ class ConfigurationSidebar:
                 st.session_state.show_config_form = False
                 st.rerun()
 
-            elif existing_config and "test_button" in locals() and test_button:
+            elif test_button:
                 self._test_configuration()
 
         return None
@@ -225,7 +226,7 @@ class ConfigurationSidebar:
                 updated_fields = data.get("updated_fields", [])
 
                 if updated_fields:
-                    st.success(f"✅ Loaded configuration from environment!")
+                    st.success("✅ Loaded configuration from environment!")
                     st.write(f"Updated fields: {', '.join(updated_fields)}")
 
                     if data.get("is_configured", False):

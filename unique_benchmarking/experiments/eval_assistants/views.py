@@ -157,7 +157,7 @@ class ExperimentViewSet(viewsets.ModelViewSet):
             # Initialize runner configuration only (don't create new experiment)
             runner = ExperimentRunner()
             runner.initialize_runner_only()
-            
+
             # Use the existing experiment
             runner.experiment = experiment
 

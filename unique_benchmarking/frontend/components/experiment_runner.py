@@ -8,7 +8,7 @@ import csv
 import io
 import time
 import threading
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import sys
 import os
 
@@ -47,10 +47,10 @@ class ExperimentRunner:
             st.write(f"Tracking ID: {tracking_id}")
             st.write(f"Experiment Started: {experiment_started}")
             st.write(f"Run Result: {run_result}")
-        
+
         # Check for active progress tracking first
         self._render_progress_tracking()
-        
+
         # Render the setup and run interface directly
         self._render_setup_and_run_tab()
 
@@ -87,9 +87,7 @@ class ExperimentRunner:
             if missing_items:
                 st.error(f"Missing: {', '.join(missing_items)}")
             else:
-                if st.button(
-                    "🚀 **RUN EXPERIMENT**", type="primary", width='stretch'
-                ):
+                if st.button("🚀 **RUN EXPERIMENT**", type="primary", width="stretch"):
                     self._run_experiment(config)
 
         st.divider()
@@ -216,7 +214,6 @@ class ExperimentRunner:
                         if len(questions) > 3:
                             st.text(f"... and {len(questions) - 3} more")
 
-
     def _parse_assistant_file(self, file) -> List[str]:
         """Parse uploaded assistant file"""
         try:
@@ -303,28 +300,34 @@ class ExperimentRunner:
 
         # Check if we should run immediately or create first for progress tracking
         run_immediately = experiment_data.get("run_immediately", True)
-        
+
         if run_immediately:
             # Create experiment without running it first
             experiment_data_create_only = experiment_data.copy()
             experiment_data_create_only["run_immediately"] = False
-            
+
             with st.spinner("🚀 Creating experiment..."):
-                response = self.api_client.create_and_run_experiment(experiment_data_create_only)
-            
+                response = self.api_client.create_and_run_experiment(
+                    experiment_data_create_only
+                )
+
             # If experiment was created successfully, start progress tracking and run
             if response.get("success") and response.get("data", {}).get("experiment"):
                 experiment_id = response["data"]["experiment"]["experiment_id"]
-                
+
                 # Store experiment ID in session state for progress tracking
                 st.session_state.tracking_experiment_id = experiment_id
                 st.session_state.tracking_start_time = time.time()
-                
+
                 # Now run the experiment in the background (this will be async in real implementation)
-                st.info("🚀 Experiment created! Starting execution with progress tracking...")
+                st.info(
+                    "🚀 Experiment created! Starting execution with progress tracking..."
+                )
                 st.rerun()  # Refresh to start showing progress
             else:
-                st.error(f"❌ Failed to create experiment: {response.get('error', 'Unknown error')}")
+                st.error(
+                    f"❌ Failed to create experiment: {response.get('error', 'Unknown error')}"
+                )
                 return
         else:
             # Original logic for non-immediate execution
@@ -359,9 +362,11 @@ class ExperimentRunner:
                     st.metric("Success Rate", f"{success_rate:.1f}%")
 
             # Guide user to next steps
-            st.info("🎉 **What's next?**\n\n"
-                   "• Go to **📊 View Experiments** to see all your experiments\n"
-                   "• Go to **📈 Generate Reports** to create detailed analysis reports")
+            st.info(
+                "🎉 **What's next?**\n\n"
+                "• Go to **📊 View Experiments** to see all your experiments\n"
+                "• Go to **📈 Generate Reports** to create detailed analysis reports"
+            )
 
             st.balloons()
 
@@ -373,49 +378,57 @@ class ExperimentRunner:
         tracking_experiment_id = st.session_state.get("tracking_experiment_id")
         tracking_start_time = st.session_state.get("tracking_start_time")
         experiment_started = st.session_state.get("experiment_started", False)
-        
+
         if not tracking_experiment_id:
             return
-        
+
         # If experiment hasn't been started yet, start it
         if not experiment_started:
             st.info("🚀 Starting experiment execution...")
-            
+
             # Start the experiment in a separate thread to avoid blocking
             def start_experiment_async():
                 try:
-                    run_response = self.api_client.run_existing_experiment(tracking_experiment_id)
+                    run_response = self.api_client.run_existing_experiment(
+                        tracking_experiment_id
+                    )
                     if run_response.get("success"):
                         st.session_state.experiment_run_result = "success"
                     else:
-                        st.session_state.experiment_run_result = f"error: {run_response.get('error', 'Unknown error')}"
+                        st.session_state.experiment_run_result = (
+                            f"error: {run_response.get('error', 'Unknown error')}"
+                        )
                 except Exception as e:
                     st.session_state.experiment_run_result = f"error: {str(e)}"
-            
+
             # Start the thread
             thread = threading.Thread(target=start_experiment_async)
             thread.daemon = True  # Dies when main thread dies
             thread.start()
-            
+
             # Mark as started so we don't start it again
             st.session_state.experiment_started = True
             st.success("✅ Experiment started in background!")
             time.sleep(1)  # Give it a moment to start
             st.rerun()
-        
+
         # Check if tracking has been going on too long (5 minutes timeout)
         if tracking_start_time and (time.time() - tracking_start_time) > 300:
-            st.warning("⚠️ Progress tracking timed out. The experiment may still be running.")
+            st.warning(
+                "⚠️ Progress tracking timed out. The experiment may still be running."
+            )
             del st.session_state.tracking_experiment_id
             del st.session_state.tracking_start_time
             if "experiment_started" in st.session_state:
                 del st.session_state.experiment_started
             return
-        
+
         # Check if there's an async experiment run result
         experiment_run_result = st.session_state.get("experiment_run_result")
         if experiment_run_result and experiment_run_result.startswith("error:"):
-            st.error(f"❌ Failed to start experiment: {experiment_run_result[7:]}")  # Remove "error: " prefix
+            st.error(
+                f"❌ Failed to start experiment: {experiment_run_result[7:]}"
+            )  # Remove "error: " prefix
             # Clear tracking on error
             del st.session_state.tracking_experiment_id
             if "tracking_start_time" in st.session_state:
@@ -425,10 +438,12 @@ class ExperimentRunner:
             if "experiment_run_result" in st.session_state:
                 del st.session_state.experiment_run_result
             return
-        
+
         # Get progress data
-        progress_response = self.api_client.get_experiment_progress(tracking_experiment_id)
-        
+        progress_response = self.api_client.get_experiment_progress(
+            tracking_experiment_id
+        )
+
         if not progress_response["success"]:
             st.error(f"Failed to get progress: {progress_response['error']}")
             # Clear tracking on error
@@ -438,7 +453,7 @@ class ExperimentRunner:
             if "experiment_started" in st.session_state:
                 del st.session_state.experiment_started
             return
-        
+
         progress_data = progress_response["data"]
         status = progress_data.get("status", "unknown")
         progress_percentage = progress_data.get("progress_percentage", 0)
@@ -446,10 +461,10 @@ class ExperimentRunner:
         completed_tasks = progress_data.get("completed_tasks", 0)
         total_tasks = progress_data.get("total_tasks", 0)
         eta_seconds = progress_data.get("eta_seconds")
-        
+
         # Display progress UI
         st.subheader("📊 Experiment Progress")
-        
+
         # Status
         if status == "running":
             st.info(f"🔄 Status: Running ({completed_tasks}/{total_tasks} tasks)")
@@ -475,15 +490,15 @@ class ExperimentRunner:
                 del st.session_state.experiment_run_result
         else:
             st.info(f"📋 Status: {status.title()}")
-        
+
         # Progress bar
         st.progress(progress_percentage / 100.0)
         st.text(f"Progress: {progress_percentage:.1f}%")
-        
+
         # Current step
         if current_step:
             st.text(f"Current step: {current_step}")
-        
+
         # ETA
         if eta_seconds and eta_seconds > 0:
             eta_minutes = eta_seconds / 60
@@ -491,11 +506,12 @@ class ExperimentRunner:
                 st.text(f"⏱️ ETA: {eta_seconds:.0f} seconds")
             else:
                 st.text(f"⏱️ ETA: {eta_minutes:.1f} minutes")
-        
+
         # Auto-refresh every 2 seconds if still running
         if status == "running":
             time.sleep(2)
             st.rerun()
+
 
 def render_experiment_runner(config: Dict[str, Any]) -> None:
     """

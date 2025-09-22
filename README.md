@@ -43,16 +43,19 @@ poetry install
 pip install django djangorestframework django-cors-headers streamlit openai
 ```
 
-### 2. Configure Environment
+### 2. Configure API Credentials (Optional)
 
-Create a `.env` file with your API credentials:
+You can optionally create a `unique.env` file with your API credentials for quick setup:
 ```bash
-OPENAI_API_KEY=your_openai_api_key
-UNIQUE_USER_ID=your_unique_user_id
-UNIQUE_COMPANY_ID=your_company_id
-UNIQUE_APPLICATION_ID=your_app_id
-UNIQUE_API_KEY=your_unique_api_key
+USER_ID=your_unique_user_id
+COMPANY_ID=your_company_id
+APP_ID=your_app_id
+API_KEY=your_unique_api_key
+BASE_URL=https://api.uat1.unique.app/public/chat
+TIMEOUT=600
 ```
+
+**Note**: Configuration is done through the web interface - this file is just for convenience.
 
 ### 3. Initialize Database
 
@@ -79,13 +82,38 @@ This starts both services in a tmux session:
 
 ### Quick Start
 1. Open http://localhost:8501 in your browser
-2. Configure your API credentials in the sidebar
+2. **Configure API credentials in the sidebar**:
+   - Click "Load from ENV" if you created a `unique.env` file
+   - Or click "Manual Setup" to enter credentials directly
+   - Required: User ID, Company ID, App ID, API Key
+   - Optional: Custom base URL, timeout, golden answer model
 3. Create a new experiment:
    - Upload your question dataset or enter questions manually
    - Select which AI assistants to test
    - Configure evaluation settings
 4. Run the experiment and monitor progress
 5. Download the HTML report when complete
+
+### Configuration Details
+
+The system stores all configuration in the Django backend database. You have two options:
+
+**Option 1: Load from Environment File**
+- Create `unique.env` with your credentials (see setup instructions)
+- Click "📁 Load from ENV" in the sidebar
+- System will automatically import and save your settings
+
+**Option 2: Manual Configuration**
+- Click "✏️ Manual Setup" in the sidebar
+- Enter your Unique.app credentials:
+  - **User ID**: Your unique.app user ID (e.g., 335xxxxxx)
+  - **Company ID**: Your company ID (e.g., 331xxxxx)  
+  - **App ID**: Application ID (e.g., app_m5axxxxxxxx)
+  - **API Key**: Your unique.app API key (starts with ukey_xxxxxx)
+- Advanced settings:
+  - **Base URL**: API endpoint (default: https://api.uat1.unique.app/public/chat)
+  - **Timeout**: Request timeout in seconds (default: 600)
+  - **Golden Model**: Model for generating reference answers (default: litellm:gpt-5)
 
 ### Tmux Controls
 - **Switch between services**: `Ctrl+b` then `0` (Django) or `1` (Streamlit)
