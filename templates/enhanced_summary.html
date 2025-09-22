@@ -1,0 +1,424 @@
+{% extends "base_report.html" %}
+
+{% block title %}Enhanced Experiment Report - {{ experiment_name }}{% endblock %}
+
+{% block content %}
+<!-- Metrics Overview Section -->
+<div class="section">
+    <div class="section-header">
+        <span>📊 Experiment Metrics Overview</span>
+        <small>{{ experiment_id }}</small>
+    </div>
+    <div class="section-content">
+        <div class="grid grid-4">
+            <div class="metric-card">
+                <div class="metric-value">{{ total_tests }}</div>
+                <div class="metric-label">Total Tests</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ completed_tests }}</div>
+                <div class="metric-label">Completed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ failed_tests }}</div>
+                <div class="metric-label">Failed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ "%.1f"|format(success_rate) }}%</div>
+                <div class="metric-label">Success Rate</div>
+            </div>
+        </div>
+        
+        {% if has_question_results %}
+        <div class="grid grid-2" style="margin-top: 20px;">
+            <div class="metric-card">
+                <div class="metric-value">{{ question_results|length }}</div>
+                <div class="metric-label">Questions Tested</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ question_results|selectattr("golden_answer")|list|length }}</div>
+                <div class="metric-label">Golden Answers</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- Evaluation Guidelines Section -->
+<div class="section">
+    <div class="section-header">
+        <span>📋 Evaluation Guidelines</span>
+        <small>Reference for human evaluators</small>
+    </div>
+    <div class="section-content">
+        <div class="grid grid-2">
+            <div class="evaluation-panel">
+                <h5>🌟 Scoring Rubric</h5>
+                <div style="margin-top: 15px;">
+                    <div><strong>5 ⭐⭐⭐⭐⭐ Outstanding:</strong> Perfect accuracy, comprehensive coverage, excellent sources</div>
+                    <div><strong>4 ⭐⭐⭐⭐☆ Good:</strong> Accurate with minor gaps, good sources, well-structured</div>
+                    <div><strong>3 ⭐⭐⭐☆☆ Adequate:</strong> Generally accurate, covers basics, acceptable sources</div>
+                    <div><strong>2 ⭐⭐☆☆☆ Incomplete:</strong> Partially accurate, missing key information</div>
+                    <div><strong>1 ⭐☆☆☆☆ Poor:</strong> Mostly inaccurate, very limited information</div>
+                    <div><strong>0 ☆☆☆☆☆ Irrelevant:</strong> No useful information or completely off-topic</div>
+                </div>
+            </div>
+            
+            <div class="evaluation-panel">
+                <h5>🎯 Evaluation Dimensions</h5>
+                <div style="margin-top: 15px;">
+                    <div><strong>Accuracy:</strong> How factually correct is the response?</div>
+                    <div><strong>Completeness:</strong> Does it fully answer the question?</div>
+                    <div><strong>Relevance:</strong> How relevant is the response to the query?</div>
+                    <div><strong>Clarity:</strong> How clear and well-structured is the response?</div>
+                    <div><strong>Sources:</strong> Quality and reliability of cited sources</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="evaluation-panel" style="margin-top: 20px;">
+            <h5>🚩 Common Flags</h5>
+            <div class="grid grid-3" style="margin-top: 15px;">
+                <div><strong>Needs Review:</strong> Response requires additional evaluation</div>
+                <div><strong>Exemplary:</strong> Outstanding response that can serve as a reference</div>
+                <div><strong>Problematic:</strong> Contains significant issues or inaccuracies</div>
+                <div><strong>Outdated Info:</strong> Contains information that may be outdated</div>
+                <div><strong>Bias Detected:</strong> Shows potential bias in the response</div>
+                <div><strong>Incomplete Sources:</strong> Missing or poor quality source citations</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if has_question_results %}
+<!-- Question-Centric Results -->
+<div class="section">
+    <div class="section-header">
+        <span>🔤 Question-by-Question Analysis</span>
+        <small>Detailed breakdown by question</small>
+    </div>
+    <div class="section-content">
+        {% for question_result in question_results %}
+        <div class="question-section" style="margin-bottom: 50px; border: 2px solid var(--border-color); border-radius: var(--border-radius); padding: 25px; background: var(--light-bg);">
+            <!-- Question Metrics -->
+            <div class="grid grid-4" style="margin-bottom: 25px;">
+                <div class="metric-card" style="border-top-color: var(--primary-color);">
+                    <div class="metric-value" style="font-size: 1.8em;">{{ question_result.total_assistants }}</div>
+                    <div class="metric-label">Total Responses</div>
+                </div>
+                <div class="metric-card" style="border-top-color: var(--success-color);">
+                    <div class="metric-value" style="font-size: 1.8em;">{{ question_result.successful_assistants }}</div>
+                    <div class="metric-label">Successful</div>
+                </div>
+                <div class="metric-card" style="border-top-color: var(--danger-color);">
+                    <div class="metric-value" style="font-size: 1.8em;">{{ question_result.failed_assistants }}</div>
+                    <div class="metric-label">Failed</div>
+                </div>
+                <div class="metric-card" style="border-top-color: var(--warning-color);">
+                    <div class="metric-value" style="font-size: 1.8em;">
+                        {{ question_result.assistant_results|selectattr("message")|selectattr("message.assessment")|list|length }}
+                    </div>
+                    <div class="metric-label">Assessed</div>
+                </div>
+            </div>
+            
+            <!-- Question Header -->
+            <div style="margin-bottom: 25px;">
+                <div style="background: linear-gradient(135deg, #3498db, #2c3e50); color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                        ❓ Question {{ loop.index }}
+                    </div>
+                    <div style="font-size: 1.3em; font-weight: 600; line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                        {{ question_result.question }}
+                    </div>
+                </div>
+                
+                <!-- Question Context Bar -->
+                <div style="background: var(--light-bg); border: 1px solid var(--border-color); border-top: none; padding: 12px 20px; border-radius: 0 0 8px 8px; font-size: 0.85em; color: var(--text-muted);">
+                    <strong>💡 Evaluation Focus:</strong> Rate each assistant's response to the above question across multiple dimensions (accuracy, completeness, relevance, clarity)
+                </div>
+            </div>
+            
+            <!-- Golden Answer -->
+            {% if question_result.golden_answer %}
+            <div class="golden-answer">
+                <h5>🏆 Golden Answer Reference</h5>
+                <div style="font-size: 0.9em; color: #856404; margin-bottom: 15px; display: flex; justify-content: space-between;">
+                    <span><strong>Model:</strong> {{ question_result.golden_answer.model }}</span>
+                    <span><strong>Generation Time:</strong> {{ "%.2f"|format(question_result.golden_answer.generation_time) }}s</span>
+                </div>
+                <div class="response-content" style="background: white; border: 1px solid #ffc107;">
+                    {{ question_result.golden_answer.answer|safe }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Assistant Results Table -->
+            <h5 style="color: var(--secondary-color); margin: 25px 0 15px 0;">🤖 Assistant Performance Comparison</h5>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Assistant Info</th>
+                            <th style="width: 50%;">Response</th>
+                            <th style="width: 15%;">Multi-Score</th>
+                            <th style="width: 20%;">Evaluation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in question_result.assistant_results %}
+                        <tr data-test-id="{{ result.test_id }}">
+                            <!-- Consolidated Assistant Info -->
+                            <td style="vertical-align: top; padding: 15px;">
+                                <div style="font-family: monospace; font-size: 0.85em; line-height: 1.4;">
+                                    <div style="margin-bottom: 8px;">
+                                        <strong style="color: var(--secondary-color);">🤖 Assistant:</strong><br>
+                                        <span style="word-break: break-all;">{{ result.assistant_id }}</span>
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 8px;">
+                                        <strong style="color: var(--secondary-color);">💬 Chat:</strong><br>
+                                        <span style="word-break: break-all;">{{ result.message.chatId if result.message else "N/A" }}</span>
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 8px;">
+                                        <strong style="color: var(--secondary-color);">📊 Status:</strong><br>
+                                        {% if result.success %}
+                                            <span class="status-badge status-success">✅ Success</span>
+                                        {% else %}
+                                            <span class="status-badge status-danger">❌ Failed</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div style="margin-bottom: 8px;">
+                                        <strong style="color: var(--secondary-color);">🔍 Assessment:</strong><br>
+                                        {% if result.message and result.message.assessment %}
+                                            {% set assessment = result.message.assessment[0] %}
+                                            {% if assessment.label == "GREEN" %}
+                                                <span class="status-badge status-success" title="{{ assessment.explanation }}">🟢 Low Risk</span>
+                                            {% elif assessment.label == "YELLOW" %}
+                                                <span class="status-badge status-warning" title="{{ assessment.explanation }}">🟡 Medium Risk</span>
+                                            {% elif assessment.label == "RED" %}
+                                                <span class="status-badge status-danger" title="{{ assessment.explanation }}">🔴 High Risk</span>
+                                            {% else %}
+                                                <span class="status-badge">❓ Unknown</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="status-badge">❌ Not Assessed</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div>
+                                        <strong style="color: var(--secondary-color);">⏱️ Duration:</strong><br>
+                                        <span style="font-weight: 600;">{{ "%.2f"|format(result.execution_time) }}s</span>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- Response Content (Much Larger) -->
+                            <td style="vertical-align: top; padding: 15px;">
+                                <div class="response-content" style="min-height: 150px; max-height: none; line-height: 1.6;">
+                                    {% if result.message and result.message.text %}
+                                        {{ result.message.text|safe }}
+                                    {% else %}
+                                        <em style="color: var(--text-muted);">No response available</em>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            
+                            <!-- Multi-Dimensional Scoring -->
+                            <td style="vertical-align: top; padding: 15px;">
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div>
+                                        <strong style="color: var(--secondary-color); font-size: 0.85em;">⭐ Overall Score</strong>
+                                        <select class="score-selector" data-test-id="{{ result.test_id }}" data-dimension="overall" 
+                                                style="width: 100%; padding: 6px; font-size: 0.85em; font-weight: bold; border: 2px solid var(--primary-color); margin-top: 4px;">
+                                            <option value="">Select Score</option>
+                                            <option value="5">⭐⭐⭐⭐⭐ Outstanding</option>
+                                            <option value="4">⭐⭐⭐⭐☆ Good</option>
+                                            <option value="3">⭐⭐⭐☆☆ Adequate</option>
+                                            <option value="2">⭐⭐☆☆☆ Incomplete</option>
+                                            <option value="1">⭐☆☆☆☆ Poor</option>
+                                            <option value="0">☆☆☆☆☆ Irrelevant</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong style="color: var(--secondary-color); font-size: 0.8em;">🎯 Accuracy</strong>
+                                        <select class="score-selector" data-test-id="{{ result.test_id }}" data-dimension="accuracy" 
+                                                style="width: 100%; padding: 5px; font-size: 0.8em; margin-top: 3px;">
+                                            <option value="">Rate Accuracy</option>
+                                            <option value="5">⭐⭐⭐⭐⭐</option>
+                                            <option value="4">⭐⭐⭐⭐☆</option>
+                                            <option value="3">⭐⭐⭐☆☆</option>
+                                            <option value="2">⭐⭐☆☆☆</option>
+                                            <option value="1">⭐☆☆☆☆</option>
+                                            <option value="0">☆☆☆☆☆</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong style="color: var(--secondary-color); font-size: 0.8em;">📋 Completeness</strong>
+                                        <select class="score-selector" data-test-id="{{ result.test_id }}" data-dimension="completeness" 
+                                                style="width: 100%; padding: 5px; font-size: 0.8em; margin-top: 3px;">
+                                            <option value="">Rate Completeness</option>
+                                            <option value="5">⭐⭐⭐⭐⭐</option>
+                                            <option value="4">⭐⭐⭐⭐☆</option>
+                                            <option value="3">⭐⭐⭐☆☆</option>
+                                            <option value="2">⭐⭐☆☆☆</option>
+                                            <option value="1">⭐☆☆☆☆</option>
+                                            <option value="0">☆☆☆☆☆</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong style="color: var(--secondary-color); font-size: 0.8em;">🔗 Relevance</strong>
+                                        <select class="score-selector" data-test-id="{{ result.test_id }}" data-dimension="relevance" 
+                                                style="width: 100%; padding: 5px; font-size: 0.8em; margin-top: 3px;">
+                                            <option value="">Rate Relevance</option>
+                                            <option value="5">⭐⭐⭐⭐⭐</option>
+                                            <option value="4">⭐⭐⭐⭐☆</option>
+                                            <option value="3">⭐⭐⭐☆☆</option>
+                                            <option value="2">⭐⭐☆☆☆</option>
+                                            <option value="1">⭐☆☆☆☆</option>
+                                            <option value="0">☆☆☆☆☆</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <strong style="color: var(--secondary-color); font-size: 0.8em;">✨ Clarity</strong>
+                                        <select class="score-selector" data-test-id="{{ result.test_id }}" data-dimension="clarity" 
+                                                style="width: 100%; padding: 5px; font-size: 0.8em; margin-top: 3px;">
+                                            <option value="">Rate Clarity</option>
+                                            <option value="5">⭐⭐⭐⭐⭐</option>
+                                            <option value="4">⭐⭐⭐⭐☆</option>
+                                            <option value="3">⭐⭐⭐☆☆</option>
+                                            <option value="2">⭐⭐☆☆☆</option>
+                                            <option value="1">⭐☆☆☆☆</option>
+                                            <option value="0">☆☆☆☆☆</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- Evaluation & Comments -->
+                            <td style="vertical-align: top; padding: 15px;">
+                                <div>
+                                    <strong style="color: var(--secondary-color); font-size: 0.9em;">💭 Comments</strong>
+                                    <textarea class="comment-field" 
+                                              data-test-id="{{ result.test_id }}" 
+                                              placeholder="Detailed feedback about this response..."
+                                              style="width: 100%; min-height: 80px; font-size: 0.85em; margin-top: 5px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;"
+                                              rows="3"></textarea>
+                                </div>
+                                
+                                <div style="margin-top: 10px;">
+                                    <strong style="color: var(--secondary-color); font-size: 0.9em;">🏷️ Flags</strong>
+                                    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 5px; font-size: 0.8em;">
+                                        <label style="display: flex; align-items: center; gap: 6px;">
+                                            <input type="checkbox" class="flag-checkbox" data-test-id="{{ result.test_id }}" data-flag="needs_review">
+                                            🔍 Needs Review
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px;">
+                                            <input type="checkbox" class="flag-checkbox" data-test-id="{{ result.test_id }}" data-flag="exemplary">
+                                            🌟 Exemplary Response
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px;">
+                                            <input type="checkbox" class="flag-checkbox" data-test-id="{{ result.test_id }}" data-flag="problematic">
+                                            ⚠️ Has Issues
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px;">
+                                            <input type="checkbox" class="flag-checkbox" data-test-id="{{ result.test_id }}" data-flag="outdated">
+                                            📅 Outdated Info
+                                        </label>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+<!-- Legacy Format Support -->
+<div class="section">
+    <div class="section-header">
+        <span>📋 Detailed Test Results</span>
+        <small>Legacy format - individual test results</small>
+    </div>
+    <div class="section-content">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Assistant ID</th>
+                        <th style="width: 10%;">Chat ID</th>
+                        <th style="width: 5%;">Status</th>
+                        <th style="width: 18%;">Question</th>
+                        <th style="width: 35%;">Answer</th>
+                        <th style="width: 8%;">Assessment</th>
+                        <th style="width: 8%;">Score</th>
+                        <th style="width: 6%;">Comments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for assistant in results %}
+                    <tr>
+                        <td class="assistant-id">{{ assistant.assistant_id }}</td>
+                        <td class="chat-id">{{ assistant.chat_id }}</td>
+                        <td class="status-cell">
+                            {% if assistant.status == "✅" %}
+                                <span class="status-badge status-success">✅</span>
+                            {% else %}
+                                <span class="status-badge status-danger">❌</span>
+                            {% endif %}
+                        </td>
+                        <td style="word-wrap: break-word;">{{ assistant.question }}</td>
+                        <td>
+                            <div class="response-content">
+                                {{ assistant.answer|safe }}
+                            </div>
+                        </td>
+                        <td class="status-cell">{{ assistant.assessment }}</td>
+                        <td>
+                            <select class="score-selector" data-test-id="{{ assistant.test_id }}">
+                                <option value="">Score</option>
+                                <option value="5">⭐⭐⭐⭐⭐</option>
+                                <option value="4">⭐⭐⭐⭐☆</option>
+                                <option value="3">⭐⭐⭐☆☆</option>
+                                <option value="2">⭐⭐☆☆☆</option>
+                                <option value="1">⭐☆☆☆☆</option>
+                                <option value="0">☆☆☆☆☆</option>
+                            </select>
+                        </td>
+                        <td>
+                            <textarea class="comment-field" 
+                                      data-test-id="{{ assistant.test_id }}" 
+                                      placeholder="Comments..."
+                                      rows="2"></textarea>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Clean, focused evaluation interface - no bulk operations needed
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Enhanced evaluation interface loaded');
+    });
+</script>
+{% endblock %}

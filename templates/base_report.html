@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Experiment Report - {{ experiment_name }}{% endblock %}</title>
+    
+    <!-- Embedded Chart.js for offline functionality -->
+    <script>
+        // Embedded Chart.js (minified version for production)
+        {{ chart_js_content|safe }}
+    </script>
+    
+    <style>
+        /* Enhanced CSS with better design system */
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+            --border-color: #dee2e6;
+            --text-muted: #6c757d;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --border-radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--light-bg);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .header .meta {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .toolbar {
+            position: sticky;
+            top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .progress-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            font-size: 0.9em;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: var(--text-muted);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .section {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: var(--secondary-color);
+            color: white;
+            padding: 20px;
+            font-size: 1.3em;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-content {
+            padding: 25px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin: -25px;
+            padding: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: var(--secondary-color);
+            color: white;
+            padding: 15px 12px;
+            font-weight: 600;
+            text-align: left;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            border-top: 4px solid var(--primary-color);
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-success { background: #d4edda; color: #155724; }
+        .status-danger { background: #f8d7da; color: #721c24; }
+        .status-warning { background: #fff3cd; color: #856404; }
+
+        .evaluation-panel {
+            background: var(--light-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .score-selector {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.9em;
+            background: white;
+        }
+
+        .score-selector:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .comment-field {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9em;
+            line-height: 1.4;
+            resize: vertical;
+            background: white;
+        }
+
+        .comment-field:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .response-content {
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.5;
+            padding: 15px;
+            background: var(--light-bg);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .golden-answer {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 2px solid #ffc107;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .golden-answer h5 {
+            color: #856404;
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .progress-section {
+                justify-content: center;
+            }
+            
+            .grid-2,
+            .grid-3,
+            .grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            .toolbar {
+                display: none;
+            }
+            
+            .section {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid var(--border-color);
+            }
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🔬 {% block header_title %}Experiment Report{% endblock %}</h1>
+        <div class="meta">
+            <strong>Experiment:</strong> {{ experiment_name }} | 
+            <strong>Generated:</strong> {{ generation_time }} |
+            <strong>Duration:</strong> {{ experiment_duration }}
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="progress-section">
+            <span>Evaluation Progress:</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <span id="progress-text">0/0 completed</span>
+        </div>
+        
+        <div class="export-section">
+            <button class="btn btn-success" onclick="exportJSON()">
+                📥 Export Evaluation Data
+            </button>
+        </div>
+        
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+
+    <!-- Enhanced JavaScript -->
+    <script>
+        // Enhanced evaluation system
+        class EvaluationManager {
+            constructor() {
+                this.data = {};
+                this.saveTimeout = null;
+                this.saveDelay = 1000;
+                this.experimentId = '{{ experiment_id }}';
+                this.evaluatorId = this.generateEvaluatorId();
+                this.init();
+            }
+
+            init() {
+                this.loadSavedData();
+                this.setupEventListeners();
+                this.updateProgress();
+                this.setupKeyboardShortcuts();
+            }
+
+            generateEvaluatorId() {
+                return 'eval_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            }
+
+            getStorageKey() {
+                return `experiment_evaluation_${this.experimentId}`;
+            }
+
+            loadSavedData() {
+                const saved = localStorage.getItem(this.getStorageKey());
+                if (saved) {
+                    this.data = JSON.parse(saved);
+                    this.restoreFormData();
+                }
+            }
+
+            restoreFormData() {
+                Object.keys(this.data.responses || {}).forEach(testId => {
+                    const response = this.data.responses[testId];
+                    
+                    // Restore scores
+                    if (response.scores) {
+                        Object.keys(response.scores).forEach(dimension => {
+                            const selector = document.querySelector(`select[data-test-id="${testId}"][data-dimension="${dimension}"]`);
+                            if (selector) {
+                                selector.value = response.scores[dimension];
+                            }
+                        });
+                    }
+                    
+                    // Restore overall score (legacy support)
+                    if (response.overall_score) {
+                        const selector = document.querySelector(`select[data-test-id="${testId}"]:not([data-dimension])`);
+                        if (selector) {
+                            selector.value = response.overall_score;
+                        }
+                    }
+                    
+                    // Restore comments
+                    if (response.comments) {
+                        const textarea = document.querySelector(`textarea[data-test-id="${testId}"]`);
+                        if (textarea) {
+                            textarea.value = response.comments;
+                        }
+                    }
+                    
+                    // Restore flags
+                    if (response.flags) {
+                        response.flags.forEach(flag => {
+                            const checkbox = document.querySelector(`input[data-test-id="${testId}"][data-flag="${flag}"]`);
+                            if (checkbox) {
+                                checkbox.checked = true;
+                            }
+                        });
+                    }
+                });
+            }
+
+            setupEventListeners() {
+                // Score selectors
+                document.querySelectorAll('.score-selector').forEach(element => {
+                    element.addEventListener('change', () => this.scheduleAutoSave());
+                });
+                
+                // Comment fields
+                document.querySelectorAll('.comment-field').forEach(element => {
+                    element.addEventListener('input', () => this.scheduleAutoSave());
+                });
+                
+                // Flag checkboxes
+                document.querySelectorAll('.flag-checkbox').forEach(element => {
+                    element.addEventListener('change', () => this.scheduleAutoSave());
+                });
+            }
+
+            setupKeyboardShortcuts() {
+                // Keep only essential Ctrl+S for save
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveData();
+                    }
+                });
+            }
+
+            scheduleAutoSave() {
+                clearTimeout(this.saveTimeout);
+                this.showSaveStatus('💾 Saving...', true);
+                this.saveTimeout = setTimeout(() => this.saveData(), this.saveDelay);
+            }
+
+            saveData() {
+                const responses = {};
+                
+                // Collect all evaluation data
+                document.querySelectorAll('[data-test-id]').forEach(element => {
+                    const testId = element.dataset.testId;
+                    if (!responses[testId]) {
+                        responses[testId] = {
+                            test_id: testId,
+                            assistant_id: this.getAssistantId(element),
+                            chat_id: this.getChatId(element),
+                            scores: {},
+                            flags: [],
+                            comments: ''
+                        };
+                    }
+                    
+                    if (element.tagName === 'SELECT') {
+                        const dimension = element.dataset.dimension || 'overall';
+                        if (element.value) {
+                            responses[testId].scores[dimension] = parseInt(element.value);
+                        }
+                    } else if (element.tagName === 'TEXTAREA') {
+                        responses[testId].comments = element.value;
+                    } else if (element.type === 'checkbox' && element.checked) {
+                        responses[testId].flags.push(element.dataset.flag);
+                    }
+                });
+
+                // Calculate overall scores and ensure all fields are present
+                Object.keys(responses).forEach(testId => {
+                    const response = responses[testId];
+                    const scores = response.scores;
+                    
+                    // Calculate overall score if multiple dimensions are scored
+                    if (Object.keys(scores).length > 1) {
+                        const values = Object.values(scores);
+                        response.overall_score = values.reduce((a, b) => a + b, 0) / values.length;
+                    } else if (scores.overall) {
+                        response.overall_score = scores.overall;
+                    }
+                    
+                    // Ensure assistant_id and chat_id are always present
+                    if (!response.assistant_id) {
+                        response.assistant_id = this.getAssistantId(document.querySelector(`[data-test-id="${testId}"]`));
+                    }
+                    if (!response.chat_id) {
+                        response.chat_id = this.getChatId(document.querySelector(`[data-test-id="${testId}"]`));
+                    }
+                });
+
+                this.data = {
+                    experiment_id: this.experimentId,
+                    evaluator_id: this.evaluatorId,
+                    timestamp: new Date().toISOString(),
+                    responses: responses,
+                    metadata: {
+                        total_responses: Object.keys(responses).length,
+                        completed_responses: Object.values(responses).filter(r => r.overall_score).length,
+                        version: '2.0'
+                    }
+                };
+
+                localStorage.setItem(this.getStorageKey(), JSON.stringify(this.data));
+                this.updateProgress();
+                this.showSaveStatus('✅ Auto-saved');
+            }
+
+            getAssistantId(element) {
+                const row = element.closest('tr');
+                if (!row) return '';
+                
+                // Look for assistant ID in the consolidated Assistant Info column
+                const assistantInfo = row.querySelector('td:first-child');
+                if (assistantInfo) {
+                    const assistantLine = assistantInfo.textContent.match(/🤖 Assistant:\s*([^\n]+)/);
+                    return assistantLine ? assistantLine[1].trim() : '';
+                }
+                
+                // Fallback to legacy selector
+                return row.querySelector('.assistant-id')?.textContent?.trim() || '';
+            }
+
+            getChatId(element) {
+                const row = element.closest('tr');
+                if (!row) return '';
+                
+                // Look for chat ID in the consolidated Assistant Info column
+                const assistantInfo = row.querySelector('td:first-child');
+                if (assistantInfo) {
+                    const chatLine = assistantInfo.textContent.match(/💬 Chat:\s*([^\n]+)/);
+                    return chatLine ? chatLine[1].trim() : '';
+                }
+                
+                // Fallback to legacy selector
+                return row.querySelector('.chat-id')?.textContent?.trim() || '';
+            }
+
+            updateProgress() {
+                const total = document.querySelectorAll('.score-selector').length;
+                const completed = document.querySelectorAll('.score-selector').length;
+                let completedCount = 0;
+                
+                document.querySelectorAll('.score-selector').forEach(select => {
+                    if (select.value) completedCount++;
+                });
+
+                const percentage = total > 0 ? (completedCount / total) * 100 : 0;
+                
+                document.getElementById('progress-fill').style.width = percentage + '%';
+                document.getElementById('progress-text').textContent = `${completedCount}/${total} completed`;
+            }
+
+            showSaveStatus(message, isLoading = false) {
+                // Show temporary notification in the progress text area
+                const progressText = document.getElementById('progress-text');
+                if (progressText) {
+                    const originalText = progressText.textContent;
+                    progressText.textContent = message;
+                    progressText.style.color = isLoading ? '#6c757d' : '#28a745';
+                    
+                    if (!isLoading) {
+                        setTimeout(() => {
+                            progressText.textContent = originalText;
+                            progressText.style.color = '';
+                        }, 2000);
+                    }
+                }
+            }
+
+            exportData() {
+                this.saveData(); // Ensure latest data is saved
+                return this.data;
+            }
+        }
+
+        // Initialize evaluation manager
+        const evaluationManager = new EvaluationManager();
+
+        // Export functions
+        function exportJSON() {
+            const data = evaluationManager.exportData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            downloadFile(blob, `experiment_evaluation_${evaluationManager.experimentId}.json`);
+            evaluationManager.showSaveStatus('📥 JSON exported!');
+        }
+
+
+
+        function downloadFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,265 +1,136 @@
-# Unique Benchmarking Tool
+# Unique Benchmarking
 
-A comprehensive benchmarking application for testing and comparing AI assistant performance using the Unique SDK. This tool provides a Streamlit web interface for running experiments, analyzing results, and comparing assistant capabilities across multiple test scenarios.
+A practical tool for evaluating AI assistants by running them against a dataset of questions and comparing their responses.
 
-## 🚀 Features
+## What It Does
 
-### Core Functionality
-- **Multi-Assistant Testing**: Test multiple AI assistants simultaneously
-- **Batch Question Processing**: Run multiple questions against each assistant
-- **Real-time Progress Tracking**: Monitor experiment progress with live updates
-- **Comprehensive Metrics**: Track response times, tool usage, search operations, and success rates
-- **Interactive Visualizations**: Analyze results with charts, graphs, and detailed breakdowns
-- **Experiment Management**: Organize and persist experiment results with timestamped directories
+**Core Features:**
+- **Batch Evaluation**: Test multiple AI assistants against a dataset of questions simultaneously
+- **Golden Answer Generation**: Uses OpenAI to generate reference answers for comparison and review
+- **HTML Report Generation**: Creates comprehensive HTML reports to easily review and compare assistant performance
+- **Streamlit Dashboard**: Interactive web interface for setting up experiments and monitoring progress
+- **Django Backend**: Robust API for managing experiments, storing results, and handling data
 
-### User Interface
-- **Modern Web Interface**: Clean, responsive Streamlit-based UI
-- **Tab-based Navigation**: Organized workflow with Configuration, Experiments, and Explorer tabs
-- **Real-time Updates**: Live progress indicators and status updates during experiments
-- **Export Capabilities**: Download results as JSON for further analysis
-- **Historical Analysis**: Browse and compare past experiment results
+## How It Works
 
-### Technical Capabilities
-- **Unique SDK Integration**: Built on top of `unique-sdk` and `unique-toolkit`
-- **Asynchronous Processing**: Efficient concurrent execution of multiple tests
-- **Structured Data Models**: Pydantic-based data validation and serialization
-- **Error Handling**: Comprehensive error tracking and recovery
-- **Detailed Logging**: Full debug information and performance metrics
+1. **Upload or create a dataset** of questions you want to test
+2. **Select AI assistants** to evaluate (from Unique.app platform)
+3. **Run the experiment** - the system will:
+   - Send each question to all selected assistants
+   - Generate golden answers using OpenAI for reference
+   - Collect and store all responses
+4. **Review results** in the generated HTML report with side-by-side comparisons
+5. **Analyze performance** using the interactive dashboard
 
-## 📋 Requirements
+## Use Cases
 
-- Python 3.12+
-- Poetry (recommended) or pip for dependency management
-- Access to Unique AI platform with valid API credentials
+- **Model Selection**: Compare different AI assistants to choose the best one for your use case
+- **Quality Assurance**: Regularly test AI assistant performance against known question sets
+- **Research**: Academic evaluation of AI capabilities across different domains
+- **Benchmarking**: Establish performance baselines and track improvements over time
 
-## 🛠️ Installation
+## Setup Instructions
 
-### Using Poetry (Recommended)
+### 1. Install Dependencies
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd unique_benchmarking
-```
+# Install tmux (macOS)
+brew install tmux
 
-2. Install dependencies with Poetry:
-```bash
+# Install Python dependencies
 poetry install
+# OR
+pip install django djangorestframework django-cors-headers streamlit openai
 ```
 
-3. Activate the virtual environment:
+### 2. Configure Environment
+
+Create a `.env` file with your API credentials:
 ```bash
-poetry shell
+OPENAI_API_KEY=your_openai_api_key
+UNIQUE_USER_ID=your_unique_user_id
+UNIQUE_COMPANY_ID=your_company_id
+UNIQUE_APPLICATION_ID=your_app_id
+UNIQUE_API_KEY=your_unique_api_key
 ```
 
-### Using pip
+### 3. Initialize Database
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd unique_benchmarking
+./setup.sh
 ```
 
-2. Create and activate a virtual environment:
+This will:
+- Create database tables
+- Run migrations
+- Optionally create an admin user
+
+### 4. Run the Application
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+./run.sh
 ```
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+This starts both services in a tmux session:
+- **Django Backend**: http://127.0.0.1:8000
+- **Streamlit Frontend**: http://localhost:8501
 
-## 🚀 Usage
+## Using the Application
 
-### Starting the Application
+### Quick Start
+1. Open http://localhost:8501 in your browser
+2. Configure your API credentials in the sidebar
+3. Create a new experiment:
+   - Upload your question dataset or enter questions manually
+   - Select which AI assistants to test
+   - Configure evaluation settings
+4. Run the experiment and monitor progress
+5. Download the HTML report when complete
 
-#### Using Poetry Script
-```bash
-poetry run start
-```
+### Tmux Controls
+- **Switch between services**: `Ctrl+b` then `0` (Django) or `1` (Streamlit)
+- **Detach session**: `Ctrl+b` then `d` (keeps running in background)
+- **Reattach later**: `tmux attach-session -t unique_benchmarking`
+- **Stop everything**: `Ctrl+C` in each window
 
-#### Using Streamlit Directly
-```bash
-streamlit run unique_benchmarking/app.py
-```
-
-#### Using Python Module
-```bash
-python -m unique_benchmarking.cli
-```
-
-### Web Interface Workflow
-
-1. **Open your browser** to `http://localhost:8501`
-
-2. **Configure Settings** (Configuration Tab):
-   - Enter your User ID
-   - Provide Company ID
-   - Set App ID
-   - Input your API Key
-   - Save configuration for the session
-
-3. **Set Up Experiments** (Experiments Tab):
-   - Add assistant IDs (one per line)
-   - Input test questions (one per line)
-   - Configure experiment settings
-   - Start the experiment run
-
-4. **Analyze Results** (Explorer Tab):
-   - Browse completed experiments
-   - View detailed performance metrics
-   - Compare assistant responses
-   - Export results for further analysis
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 unique_benchmarking/
-├── unique_benchmarking/           # Main application package
-│   ├── __init__.py
-│   ├── app.py                     # Streamlit application entry point
-│   ├── cli.py                     # Command-line interface
-│   ├── config.py                  # Configuration management
-│   ├── experiment_executor.py     # Core experiment execution logic
-│   ├── utils.py                   # Utility functions
-│   ├── markdown_template.j2       # Jinja2 template for reports
-│   └── components/                # UI components
-│       ├── __init__.py
-│       ├── main_content.py        # Configuration tab content
-│       ├── sidebar.py             # Sidebar navigation
-│       ├── experiment_runner.py   # Experiment execution UI
-│       └── experiment_explorer.py # Results analysis UI
-├── experiments/                   # Generated experiment results
-│   └── experiment_YYYYMMDD_HHMMSS/
-│       ├── experiment_config.json
-│       ├── experiment_summary.json
-│       ├── success/               # Successful test results
-│       └── error/                 # Failed test results
-├── pyproject.toml                 # Poetry configuration
-├── poetry.lock                    # Locked dependencies
-└── README.md                      # This file
+├── setup.sh                    # Database setup script
+├── run.sh                      # Start both services
+├── unique_benchmarking/
+│   ├── experiments/            # Django backend
+│   │   ├── manage.py
+│   │   └── eval_assistants/    # Main app with models and API
+│   └── frontend/               # Streamlit interface
+│       ├── main.py
+│       └── components/         # UI components
+└── templates/                  # HTML report templates
 ```
 
-## 📊 Results Format
+## Troubleshooting
 
-Each experiment generates structured results with the following information:
+**Services won't start?**
+- Check that virtual environment is activated
+- Run `./setup.sh` to ensure database is initialized
+- Verify all API credentials are configured
 
-### Experiment Summary
-```json
-{
-  "total_tests": 10,
-  "successful_tests": 8,
-  "failed_tests": 2,
-  "success_rate": 0.8,
-  "total_duration": 120.5,
-  "average_response_time": 12.05,
-  "experiment_directory": "experiments/experiment_20250904_192132"
-}
-```
+**Can't access the web interface?**
+- Ensure ports 8000 and 8501 are not in use
+- Check that both Django and Streamlit are running in tmux
 
-### Individual Test Results
-```json
-{
-  "test_id": "unique_test_identifier",
-  "assistant_id": "assistant_abc123",
-  "question": "What is the capital of France?",
-  "message": "The capital of France is Paris...",
-  "assessment": "CORRECT",
-  "response_time": 3.2,
-  "debug_info": {
-    "num_searches": 2,
-    "total_time": 3.1,
-    "search_time": 1.5,
-    "clean_time": 0.3,
-    "crawl_time": 1.3,
-    "gpt_requests": 1
-  },
-  "timestamp": "2025-01-04T19:21:32Z",
-  "status": "success"
-}
-```
+**Experiment fails?**
+- Verify API credentials are correct and have sufficient quota
+- Check the Django logs (tmux window 0) for detailed error messages
 
-## ⚙️ Configuration
+## API Endpoints
 
-### Required Settings
-- **User ID**: Your unique user identifier in the Unique platform
-- **Company ID**: Your organization's identifier
-- **App ID**: The application identifier for your use case
-- **API Key**: Authentication key for API access
+- **Experiments**: `GET/POST /api/experiments/`
+- **Results**: `GET /api/experiments/{id}/results/`
+- **Reports**: `GET /api/experiments/{id}/report/`
+- **Admin Interface**: http://127.0.0.1:8000/admin/
 
-### Optional Settings
-- **Max Wait Time**: Maximum time to wait for assistant responses (default: 60 seconds)
-- **Concurrent Tests**: Number of simultaneous tests to run (default: 5)
+---
 
-## 🔧 Development
-
-### Code Quality
-The project uses Ruff for linting and code formatting:
-
-```bash
-# Run linting
-poetry run ruff check .
-
-# Fix auto-fixable issues
-poetry run ruff check . --fix
-
-# Format code
-poetry run ruff format .
-```
-
-### Data Models
-The application uses Pydantic for data validation and serialization:
-- `ExperimentConfig`: Experiment configuration and settings
-- `TestResult`: Individual test execution results
-- `ExperimentSummary`: Aggregated experiment statistics
-- `DebugInfo`: Detailed performance and tool usage metrics
-
-## 🐛 Error Handling
-
-The application includes comprehensive error handling for:
-- **Network Issues**: Timeout handling and retry logic
-- **API Errors**: Authentication and rate limiting
-- **Invalid Configurations**: Missing or malformed settings
-- **Assistant Failures**: Individual test failures don't stop the entire experiment
-- **Data Validation**: Pydantic model validation for all data structures
-
-## 📈 Performance Metrics
-
-The tool tracks detailed performance metrics:
-- **Response Times**: End-to-end assistant response times
-- **Tool Usage**: Search operations, web crawling, and API calls
-- **Success Rates**: Percentage of successful vs. failed tests
-- **Resource Utilization**: Time breakdown by operation type
-- **Quality Assessments**: Automated evaluation of response quality
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and linting (`poetry run ruff check .`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For support and questions:
-1. Check the experiment logs in the `experiments/` directory
-2. Review the Streamlit console output for error messages
-3. Ensure your API credentials are valid and have appropriate permissions
-4. Verify network connectivity to the Unique AI platform
-
-## 🔄 Version History
-
-- **v0.1.0**: Initial release with core benchmarking functionality
-  - Multi-assistant testing
-  - Streamlit web interface
-  - Experiment management and results analysis
-  - Unique SDK integration
+**Ready to start?** Run `./setup.sh` then `./run.sh`

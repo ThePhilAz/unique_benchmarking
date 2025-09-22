@@ -206,7 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-experiments/
 .env.cache
 unique.env
 .DS_Store
+
+data/questions/*
+data/urls/*
+
+assistants.txt
+questions.txt
+
+# Django static files
+staticfiles/

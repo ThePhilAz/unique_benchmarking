@@ -8,22 +8,16 @@ packages = [{include = "unique_benchmarking"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-requests = "^2.32.5"
-streamlit = "^1.49.1"
-pandas = "^2.3.2"
-plotly = "^6.3.0"
-tabulate = "^0.9.0"
-jinja2 = "^3.1.6"
-ruff = "^0.12.11"
-asyncio = "^4.0.0"
-httpx = "^0.28.1"
-pydantic = "^2.11.7"
-unique-sdk = "^0.10.20"
-unique-toolkit = "^0.8.46"
-markdown = "^3.6"
-
-[tool.poetry.scripts]
-start = "unique_benchmarking.cli:start"
+python-dotenv = "^1.0.0"
+django = "^5.2.6"
+djangorestframework = "^3.15.2"
+django-cors-headers = "^4.5.0"
+streamlit = "^1.39.0"
+requests = "^2.32.3"
+unique-toolkit = "^1.1.1"
+ruff = "^0.13.1"
+unique-sdk = "^0.10.24"
+openai = "1.106.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.30.1"
