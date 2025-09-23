@@ -165,9 +165,6 @@ class AssistantResponse(models.Model):
     started_at = models.DateTimeField(blank=True, null=True)
     ended_at = models.DateTimeField(blank=True, null=True)
 
-    class Meta:
-        unique_together = ["experiment", "assistant_id", "chat_id"]
-
     def __str__(self):
         status = "✓" if self.success else "✗"
         return f"{status} {self.assistant_id}: {str(self.question)[:30]}..."

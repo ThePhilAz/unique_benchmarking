@@ -82,6 +82,7 @@ class APIClient:
     def get_experiment_responses(self, experiment_id: str, **params) -> Dict[str, Any]:
         """Get responses for a specific experiment"""
         params["experiment_id"] = experiment_id
+        params["page_size"] = 1000  # Get all responses, not just first page
         return self._make_request("GET", "/api/responses/", params=params)
 
     def get_experiment_progress(self, experiment_id: str) -> Dict[str, Any]:
